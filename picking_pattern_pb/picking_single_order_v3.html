@@ -48,7 +48,7 @@ canvas { display: block; border: 1px solid #e0e0e0; }
   <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
   <span class="speed-label">Speed <input type="range" id="speed" min="1" max="6" value="2"></span>
 </div>
-<canvas id="c" width="920" height="500"></canvas>
+<canvas id="c" width="920" height="420"></canvas>
 <div class="info-panel">
   <div class="info-box">
     <h3>/ Single Order Picking とは</h3>
@@ -69,7 +69,7 @@ canvas { display: block; border: 1px solid #e0e0e0; }
 
 <script>
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-const W=920,H=500;
+const W=920,H=420;
 
 // PLAN B light palette
 const C={
@@ -100,7 +100,7 @@ const ORDER_ITEMS={
   'Order 3':[{sku:'B',item:'B3'},{sku:'C',item:'C2'},{sku:'D',item:'D1'}],
   'Order 4':[{sku:'A',item:'A2'},{sku:'D',item:'D2'},{sku:'D',item:'D3'}],
 };
-const HOME={x:388,y:395};
+const HOME={x:388,y:315};
 let hand={...HOME},handFrom={...HOME},handTo={...HOME};
 let pickedItems={},pickedSKUs={},completedOrders={},currentItem=null,currentOrder=null,currentSKU=null;
 let log=[],steps=[],stepIdx=0,t=0,animRunning=false,animId=null,lastTime=0,stepLabel='';
@@ -187,7 +187,7 @@ function draw(){
 
 function drawStation(){
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
-  ctx.beginPath();ctx.rect(12,30,896,330);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.rect(12,30,896,250);ctx.fill();ctx.stroke();
   // Top bar
   ctx.fillStyle=C.black;ctx.fillRect(12,30,896,28);
   sf(11,'700');ctx.fillStyle='#fff';
@@ -195,7 +195,7 @@ function drawStation(){
   sf(10,'500');ctx.fillStyle='#888';ctx.textAlign='right';
   ctx.fillText('① SINGLE ORDER',W-22,49);ctx.textAlign='left';
   // Left accent line
-  ctx.fillStyle=C.black;ctx.fillRect(12,58,2,302);
+  ctx.fillStyle=C.black;ctx.fillRect(12,58,2,222);
 }
 function drawSKULabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.letterSpacing='1px';ctx.fillText('/ SKU BINS',36,66);}
 function drawOrderLabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ ORDER BOXES',572,66);}
@@ -284,7 +284,7 @@ function drawHand(){
 }
 
 function drawLog(){
-  const lx=30,ly=372,lw=286,lh=116;
+  const lx=30,ly=290,lw=286,lh=118;
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
   ctx.beginPath();ctx.rect(lx,ly,lw,lh);ctx.fill();ctx.stroke();
   ctx.fillStyle=C.black;ctx.fillRect(lx,ly,2,lh);
@@ -296,7 +296,7 @@ function drawLog(){
 }
 
 function drawProgress(){
-  const bx=326,by=372,bw=584,bh=116;
+  const bx=326,by=290,bw=584,bh=118;
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
   ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.fill();ctx.stroke();
   ctx.fillStyle=C.black;ctx.fillRect(bx,by,2,bh);

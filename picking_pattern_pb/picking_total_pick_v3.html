@@ -48,7 +48,7 @@ canvas { display: block; border: 1px solid #e0e0e0; }
   <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
   <span class="speed-label">Speed <input type="range" id="speed" min="1" max="6" value="2"></span>
 </div>
-<canvas id="c" width="920" height="500"></canvas>
+<canvas id="c" width="920" height="420"></canvas>
 <div class="info-panel">
   <div class="info-box">
     <h3>/ Total Pick（種蒔き方式）とは</h3>
@@ -69,7 +69,7 @@ canvas { display: block; border: 1px solid #e0e0e0; }
 
 <script>
 const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
-const W=920,H=500;
+const W=920,H=420;
 const C={
   bg:'#f8f8f8',white:'#ffffff',border:'#e0e0e0',
   text:'#111',textMid:'#555',textLight:'#aaa',black:'#111',
@@ -93,7 +93,7 @@ const BUF={x:392,y:115,w:BW,h:BH};
 const SORT_MAP={A1:'Order 1',A2:'Order 4',A3:'Order 2',B1:'Order 2',B2:'Order 1',B3:'Order 3',C1:'Order 2',C2:'Order 3',C3:'Order 1',D1:'Order 3',D2:'Order 4',D3:'Order 4'};
 const PHASE1=[{sku:'A',items:['A1','A2','A3']},{sku:'B',items:['B1','B2','B3']},{sku:'C',items:['C1','C2','C3']},{sku:'D',items:['D1','D2','D3']}];
 const P2=[  'A1','B2','C3','A3','B1','C1','B3','C2','D1','A2','D2','D3'];
-const HOME={x:388,y:395},SPOS={x:584,y:395};
+const HOME={x:388,y:315},SPOS={x:584,y:315};
 let hand={...HOME},handFrom={...HOME},handTo={...HOME};
 let sorter={...SPOS},sorterFrom={...SPOS},sorterTo={...SPOS};
 let bufItems=[],pickedSKU={},pickedItems={},completedOrders={};
@@ -203,12 +203,12 @@ function draw(){
 }
 function drawStation(){
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
-  ctx.beginPath();ctx.rect(12,30,896,330);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.rect(12,30,896,250);ctx.fill();ctx.stroke();
   ctx.fillStyle=C.black;ctx.fillRect(12,30,896,28);
   sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('PICKING STATION',22,49);
   const phLabel=phase===1?'PHASE 1  PICKING':'PHASE 2  SORTING';
   sf(10,'500');ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText(phLabel,W-22,49);ctx.textAlign='left';
-  ctx.fillStyle=C.black;ctx.fillRect(12,58,2,302);
+  ctx.fillStyle=C.black;ctx.fillRect(12,58,2,222);
 }
 function drawSKULabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ SKU BINS',36,66);}
 function drawOrderLabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ ORDER BOXES',572,66);}
@@ -342,7 +342,7 @@ function drawSorterHand(){
   ctx.fillText(`仕分け ${sorted}/12`,sx2,sy2-50);ctx.textAlign='left';
 }
 function drawLog(){
-  const lx=30,ly=372,lw=286,lh=116;
+  const lx=30,ly=290,lw=286,lh=118;
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
   ctx.beginPath();ctx.rect(lx,ly,lw,lh);ctx.fill();ctx.stroke();
   ctx.fillStyle=C.black;ctx.fillRect(lx,ly,2,lh);
@@ -352,7 +352,7 @@ function drawLog(){
   });
 }
 function drawProgress(){
-  const bx=326,by=372,bw=584,bh=116;
+  const bx=326,by=290,bw=584,bh=118;
   ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
   ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.fill();ctx.stroke();
   ctx.fillStyle=C.black;ctx.fillRect(bx,by,2,bh);
