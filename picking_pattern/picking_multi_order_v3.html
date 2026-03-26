@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Picking Station — ② Multi Order Picking | Rapyuta Robotics</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; color: #fff; font-family: 'Open Sans','Noto Sans JP',sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+.header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; width: 920px; }
+.header-text h1 { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+.header-divider { flex: 1; height: 1px; background: #333; }
+.pattern-badge { background: #e11a27; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 14px; letter-spacing: 0.5px; }
+.subtitle { font-size: 11px; font-weight: 300; color: #808080; margin-bottom: 14px; width: 920px; }
+.controls { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; width: 920px; }
+.btn { padding: 7px 22px; border: none; cursor: pointer; font-size: 12px; font-weight: 700; font-family: 'Open Sans',sans-serif; letter-spacing: 0.5px; text-transform: uppercase; }
+.btn-start { background: #e11a27; color: #fff; }
+.btn-reset { background: transparent; color: #808080; border: 1px solid #333; }
+.speed-label { font-size: 11px; color: #808080; display: flex; align-items: center; gap: 8px; }
+input[type=range] { width: 90px; accent-color: #e11a27; }
+canvas { display: block; border: 1px solid #333; }
+.info-panel { width: 920px; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-top: 1px; border: 1px solid #333; }
+.info-box { background: #111; padding: 14px 18px; font-size: 12px; line-height: 1.9; color: #808080; font-weight: 300; }
+.info-box:first-child { border-right: 1px solid #333; }
+.info-box h3 { color: #e11a27; font-size: 11px; font-weight: 700; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+.hl { color: #fff; font-weight: 600; }
+.tag { display: inline-block; padding: 1px 8px; font-size: 10px; font-weight: 700; margin-right: 4px; }
+.tg { color: #aaa532; border: 1px solid #aaa532; }
+.tr { color: #e11a27; border: 1px solid #e11a27; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-text"><h1>Picking Station — ② Multi Order Picking</h1></div>
+  <div class="header-divider"></div>
+  <div class="pattern-badge">② MULTI ORDER</div>
+</div>
+<p class="subtitle">複数オーダーを同時並行処理 / 作業者が SKU Bin を1回訪問し、複数 Order Box へ即時振り分け</p>
+<div class="controls">
+  <button class="btn btn-start" id="startBtn" onclick="toggleAnim()">▶ Start</button>
+  <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+  <span class="speed-label">SPEED <input type="range" id="speed" min="1" max="6" value="2"></span>
+</div>
+<canvas id="c" width="920" height="500"></canvas>
+<div class="info-panel">
+  <div class="info-box">
+    <h3>Multi Order Picking とは</h3>
+    <span class="hl">複数オーダーを同時並行</span>で処理する方式。<br>
+    作業者が SKU Bin を<span class="hl">1回訪問するだけ</span>で、<br>
+    その Bin に必要な全オーダー分をまとめてピックし、<br>
+    それぞれの Order Box へ即時振り分けます。
+  </div>
+  <div class="info-box">
+    <h3>効率評価（①との比較）</h3>
+    Bin 訪問回数：<span class="hl">4回</span>（① Single は12回）<br>
+    ピック総数：<span class="hl">12回</span>（同じ）<br>
+    同時処理：<span class="hl">あり（最大4オーダー並列）</span><br><br>
+    <span class="tag tg">✓ 長所</span> 移動距離が大幅に短縮、スループット向上<br>
+    <span class="tag tr">× 短所</span> 作業が複雑、誤ピックリスク増
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 920, H = 500;
+const C = { red:'#e11a27', black:'#000', white:'#fff', g40:'#cccccc', g60:'#808080', g80:'#333333', au1:'#a44319', au2:'#f2501a', au3:'#edab36', au4:'#aaa532' };
+const BW = 128, BH = 90;
+
+const SKU_BINS = [
+  { id:'A', x:36,  y:70,  color:C.au2, items:['A1','A2','A3'] },
+  { id:'B', x:180, y:70,  color:C.au3, items:['B1','B2','B3'] },
+  { id:'C', x:36,  y:178, color:C.au4, items:['C1','C2','C3'] },
+  { id:'D', x:180, y:178, color:C.au1, items:['D1','D2','D3'] },
+];
+const ORDER_BINS = [
+  { id:'Order 1', x:572, y:70,  color:C.red  },
+  { id:'Order 2', x:716, y:70,  color:C.g60  },
+  { id:'Order 3', x:572, y:178, color:C.g40  },
+  { id:'Order 4', x:716, y:178, color:C.au3  },
+];
+// Multi: visit each bin once, pick all orders' items
+const BIN_VISITS = [
+  { sku:'A', picks:[{item:'A1',order:'Order 1'},{item:'A3',order:'Order 2'},{item:'A2',order:'Order 4'}] },
+  { sku:'B', picks:[{item:'B2',order:'Order 1'},{item:'B1',order:'Order 2'},{item:'B3',order:'Order 3'}] },
+  { sku:'C', picks:[{item:'C3',order:'Order 1'},{item:'C1',order:'Order 2'},{item:'C2',order:'Order 3'}] },
+  { sku:'D', picks:[{item:'D1',order:'Order 3'},{item:'D2',order:'Order 4'},{item:'D3',order:'Order 4'}] },
+];
+const WORKER_HOME = { x: 388, y: 395 };
+
+let hand={...WORKER_HOME}, handFrom={...hand}, handTo={...hand};
+let pickedItems={}, pickedSKUs={}, completedOrders=[];
+let currentItem=null, currentOrder=null, currentSKU=null;
+let log=[], steps=[], stepIdx=0, t=0;
+let animRunning=false, animId=null, lastTime=0, stepLabel='';
+
+function skuCenter(id){const b=SKU_BINS.find(x=>x.id===id);return{x:b.x+BW/2,y:b.y+BH/2};}
+function orderCenter(id){const b=ORDER_BINS.find(x=>x.id===id);return{x:b.x+BW/2,y:b.y+BH/2};}
+
+function initState(){
+  hand={...WORKER_HOME};handFrom={...hand};handTo={...hand};
+  pickedItems={};ORDER_BINS.forEach(b=>{pickedItems[b.id]=[];});pickedSKUs={};
+  completedOrders=[];currentItem=null;currentOrder=null;currentSKU=null;log=[];stepLabel='';
+}
+function buildSteps(){
+  const st=[];
+  BIN_VISITS.forEach(visit=>{
+    st.push({type:'to_sku',sku:visit.sku,msg:`作業者 → SKU Bin ${visit.sku} へ移動`});
+    visit.picks.forEach((p,i)=>{
+      st.push({type:'pick',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} を SKU Bin ${visit.sku} からピック`});
+      st.push({type:'to_order',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} → ${p.order} へ搬送`});
+      st.push({type:'drop',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} を ${p.order} に収納 ✓`});
+      if(i<visit.picks.length-1)
+        st.push({type:'back_to_sku',sku:visit.sku,msg:`SKU Bin ${visit.sku} へ戻る`});
+    });
+    st.push({type:'home',sku:visit.sku,msg:`作業者 ホームへ戻る`});
+  });
+  st.push({type:'done',msg:'全オーダー完了'});
+  return st;
+}
+function prepareStep(idx){
+  if(idx>=steps.length)return;
+  const s=steps[idx];handFrom={...hand};
+  if(s.type==='to_sku'||s.type==='back_to_sku')handTo=skuCenter(s.sku);
+  else if(s.type==='to_order')handTo=orderCenter(s.order);
+  else if(s.type==='home')handTo={...WORKER_HOME};
+  else handTo={...hand};
+  stepLabel=s.msg||'';if(s.sku)currentSKU=s.sku;if(s.order)currentOrder=s.order;
+}
+function commitStep(s){
+  hand={...handTo};
+  if(s.type==='pick'){currentItem=s.item;}
+  if(s.type==='drop'){
+    pickedItems[s.order].push(s.item);pickedSKUs[s.item]=true;currentItem=null;
+    addLog(`✓ ${s.item} → ${s.order}`);
+    if(pickedItems[s.order].length===3){completedOrders.push(s.order);addLog(`${s.order} 完了`);}
+  }
+  if(s.type==='home'){currentSKU=null;currentOrder=null;}
+  if(s.type==='done'){addLog('全オーダー処理完了');}
+}
+function addLog(m){log.unshift(m);if(log.length>10)log.pop();}
+
+function toggleAnim(){
+  if(stepIdx>=steps.length){resetAnim();return;}
+  animRunning=!animRunning;
+  document.getElementById('startBtn').textContent=animRunning?'⏸ PAUSE':'▶ RESUME';
+  if(animRunning){lastTime=performance.now();loop(lastTime);}
+}
+function resetAnim(){
+  animRunning=false;if(animId)cancelAnimationFrame(animId);
+  document.getElementById('startBtn').textContent='▶ START';
+  initState();steps=buildSteps();stepIdx=0;t=0;prepareStep(0);draw();
+}
+function loop(ts){
+  if(!animRunning)return;
+  const spd=parseFloat(document.getElementById('speed').value);
+  const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+  const s=steps[stepIdx];
+  const instant=s&&(s.type==='pick'||s.type==='drop'||s.type==='done');
+  t+=dt*spd*(instant?3:0.7);
+  if(t>=1){
+    commitStep(steps[stepIdx]);stepIdx++;t=0;
+    if(stepIdx>=steps.length){animRunning=false;document.getElementById('startBtn').textContent='✓ DONE';draw();return;}
+    prepareStep(stepIdx);
+  }
+  draw();animId=requestAnimationFrame(loop);
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function ease(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function sf(size,weight='400'){ctx.font=`${weight} ${size}px 'Open Sans','Noto Sans JP',sans-serif`;}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);ctx.fillStyle=C.black;ctx.fillRect(0,0,W,H);
+  drawStation();drawSKULabel();drawOrderLabel();drawBinVisitCounter();
+  SKU_BINS.forEach(drawSKUBin);ORDER_BINS.forEach(drawOrderBin);
+  drawWorkerBase();drawWorkerHand();
+  drawLogPanel();drawStepInfo();
+  ctx.fillStyle=C.red;ctx.fillRect(12,30,3,330);
+}
+function drawStation(){
+  ctx.fillStyle='#0a0a0a';ctx.strokeStyle=C.g80;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(12,30,896,330);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.red;ctx.beginPath();ctx.rect(15,30,893,26);ctx.fill();
+  sf(12,'700');ctx.fillStyle=C.white;ctx.fillText('PICKING STATION',22,48);
+  sf(10,'700');ctx.fillStyle=C.white;ctx.textAlign='right';
+  ctx.fillText('② MULTI ORDER MODE',W-20,48);ctx.textAlign='left';
+}
+function drawSKULabel(){sf(9,'700');ctx.fillStyle=C.g60;ctx.fillText('SKU BINS',36,64);}
+function drawOrderLabel(){sf(9,'700');ctx.fillStyle=C.g60;ctx.fillText('ORDER BOXES',572,64);}
+
+function drawBinVisitCounter(){
+  const visits=steps.slice(0,stepIdx).filter(s=>s.type==='to_sku').length;
+  ctx.fillStyle='#111';ctx.strokeStyle=C.red;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(330,370,230,32);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.red;ctx.fillRect(330,370,3,32);
+  sf(11,'700');ctx.fillStyle=C.white;ctx.fillText(`Bin 訪問回数: ${visits} / 4 回`,342,391);
+  sf(9,'300');ctx.fillStyle=C.g60;ctx.fillText('（① Single なら12回訪問）',342,407);
+}
+
+function drawSKUBin(b){
+  const isActive=currentSKU===b.id;
+  ctx.fillStyle='#111';ctx.strokeStyle=isActive?b.color:C.g80;ctx.lineWidth=isActive?2:1;
+  ctx.beginPath();ctx.rect(b.x,b.y,BW,BH);ctx.fill();ctx.stroke();
+  ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,BW,3);
+  if(isActive){ctx.strokeStyle=b.color+'44';ctx.lineWidth=5;ctx.beginPath();ctx.rect(b.x-3,b.y-3,BW+6,BH+6);ctx.stroke();ctx.lineWidth=1;}
+  sf(10,'700');ctx.fillStyle=isActive?b.color:C.g60;ctx.fillText(`SKU Bin ${b.id}`,b.x+8,b.y+18);
+  b.items.forEach((item,i)=>{
+    const isPicked=!!pickedSKUs[item],isCurrent=currentItem===item;
+    const ix=b.x+6+(i%3)*40,iy=b.y+26;
+    ctx.fillStyle=isCurrent?b.color+'33':isPicked?'#0a0a0a':'#1a1a1a';
+    ctx.strokeStyle=isCurrent?b.color:isPicked?C.g80:b.color+'55';ctx.lineWidth=isCurrent?2:1;
+    ctx.beginPath();ctx.rect(ix,iy,35,50);ctx.fill();ctx.stroke();
+    sf(9,isPicked?'300':'700');ctx.fillStyle=isCurrent?b.color:isPicked?C.g80:C.g40;
+    ctx.textAlign='center';ctx.fillText(item,ix+17,iy+20);
+    if(isPicked){
+      // color by destination order
+      let destOrder=null;
+      BIN_VISITS.forEach(v=>v.picks.forEach(p=>{if(p.item===item)destOrder=p.order;}));
+      const oc=destOrder?ORDER_BINS.find(x=>x.id===destOrder)?.color:b.color;
+      sf(14,'700');ctx.fillStyle=oc+'cc';ctx.fillText('✓',ix+17,iy+40);
+    }
+    ctx.textAlign='left';
+  });
+  if(isActive){
+    const rem=b.items.filter(it=>!pickedSKUs[it]).length;
+    sf(8,'300');ctx.fillStyle=b.color;ctx.textAlign='right';
+    ctx.fillText(`残 ${rem}点`,b.x+BW-6,b.y+BH-6);ctx.textAlign='left';
+  }
+}
+function drawOrderBin(b){
+  const done=completedOrders.includes(b.id),isCurrent=currentOrder===b.id&&!done;
+  ctx.fillStyle='#111';ctx.strokeStyle=isCurrent?b.color:done?b.color+'aa':C.g80;ctx.lineWidth=(isCurrent||done)?2:1;
+  ctx.beginPath();ctx.rect(b.x,b.y,BW,BH);ctx.fill();ctx.stroke();
+  ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,BW,3);
+  sf(10,'700');ctx.fillStyle=b.color;ctx.fillText(b.id,b.x+8,b.y+18);
+  const filled=(pickedItems[b.id]||[]).length;
+  for(let i=0;i<3;i++){
+    ctx.fillStyle=i<filled?b.color:'#222';ctx.strokeStyle=i<filled?b.color:C.g80;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(b.x+BW-16-(2-i)*13,b.y+13,4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  (pickedItems[b.id]||[]).forEach((item,i)=>{
+    const sc=SKU_BINS.find(s=>s.items.includes(item))?.color||b.color;
+    ctx.fillStyle=sc+'22';ctx.strokeStyle=sc+'66';ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(b.x+6+(i%3)*40,b.y+26,35,50);ctx.fill();ctx.stroke();
+    sf(9,'700');ctx.fillStyle=sc;ctx.textAlign='center';
+    ctx.fillText(item,b.x+6+(i%3)*40+17,b.y+56);ctx.textAlign='left';
+  });
+  if(done){
+    ctx.fillStyle=b.color+'22';ctx.beginPath();ctx.rect(b.x+2,b.y+2,BW-4,BH-4);ctx.fill();
+    sf(16,'700');ctx.fillStyle=b.color;ctx.textAlign='center';
+    ctx.fillText('DONE',b.x+BW/2,b.y+BH/2+7);ctx.textAlign='left';
+  }
+}
+function drawWorkerBase(){
+  const px=WORKER_HOME.x,py=WORKER_HOME.y;
+  ctx.fillStyle='#111';ctx.strokeStyle=C.red;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(px-30,py-22,60,58);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.red;ctx.fillRect(px-30,py-22,60,2);
+  ctx.font='30px serif';ctx.textAlign='center';ctx.fillText('🧑‍🏭',px,py+22);
+  sf(9,'300');ctx.fillStyle=C.red;ctx.fillText('作業者',px,py+46);ctx.textAlign='left';
+}
+function drawWorkerHand(){
+  const et=ease(Math.min(t,1));
+  const hx=lerp(handFrom.x,handTo.x,et),hy=lerp(handFrom.y,handTo.y,et);
+  ctx.strokeStyle=C.red+'44';ctx.lineWidth=1.5;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.moveTo(handFrom.x,handFrom.y);ctx.lineTo(hx,hy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=C.red;ctx.strokeStyle=C.black;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(hx,hy,18,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.font='17px serif';ctx.textAlign='center';ctx.fillText('✋',hx,hy+7);ctx.textAlign='left';
+  if(currentItem){
+    const sc=SKU_BINS.find(s=>s.items.includes(currentItem))?.color||C.red;
+    ctx.fillStyle=C.black;ctx.strokeStyle=sc;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.rect(hx-18,hy-36,36,18);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle=sc;ctx.textAlign='center';ctx.fillText(currentItem,hx,hy-24);ctx.textAlign='left';
+  }
+  sf(9,'700');ctx.fillStyle=C.red;ctx.textAlign='center';ctx.fillText('作業者',hx,hy+34);ctx.textAlign='left';
+  const picks=steps.slice(0,stepIdx).filter(s=>s.type==='drop').length;
+  sf(10,'300');ctx.fillStyle=C.g60;ctx.textAlign='center';ctx.fillText(`ピック ${picks}/12`,hx,hy-52);ctx.textAlign='left';
+}
+function drawLogPanel(){
+  const lx=30,ly=375,lw=290,lh=112;
+  ctx.fillStyle='#0a0a0a';ctx.strokeStyle=C.g80;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(lx,ly,lw,lh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.red;ctx.fillRect(lx,ly,3,lh);
+  sf(9,'700');ctx.fillStyle=C.g60;ctx.fillText('ACTION LOG',lx+10,ly+14);
+  log.slice(0,6).forEach((m,i)=>{
+    sf(10,i===0?'600':'300');ctx.fillStyle=i===0?C.white:C.g60;ctx.fillText(m,lx+10,ly+28+i*15);
+  });
+}
+function drawStepInfo(){
+  const bx=570,by=375,bw=338,bh=112;
+  ctx.fillStyle='#0a0a0a';ctx.strokeStyle=C.g80;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.red;ctx.fillRect(bx,by,3,bh);
+  sf(9,'700');ctx.fillStyle=C.g60;ctx.fillText('PROGRESS',bx+10,by+14);
+  ORDER_BINS.forEach((b,i)=>{
+    const cx=i%2===0?bx+10:bx+bw/2+10,ry=Math.floor(i/2)===0?by+22:by+22+40,bw2=bw/2-24;
+    const filled=(pickedItems[b.id]||[]).length;
+    ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.rect(cx,ry,bw2,12);ctx.fill();
+    ctx.fillStyle=b.color+(completedOrders.includes(b.id)?'ff':'99');
+    ctx.beginPath();ctx.rect(cx,ry,bw2*(filled/3),12);ctx.fill();
+    ctx.fillStyle=b.color;ctx.fillRect(cx,ry,bw2*(filled/3),2);
+    sf(9,'300');ctx.fillStyle=b.color;ctx.fillText(`${b.id}  ${filled}/3`,cx,ry+25);
+  });
+  const tot=steps.length,cur=Math.min(stepIdx+1,tot);
+  sf(9,'300');ctx.fillStyle=C.g60;ctx.textAlign='right';
+  ctx.fillText(`${cur} / ${tot}`,W-16,H-10);ctx.textAlign='left';
+  if(stepLabel){sf(10,'300');ctx.fillStyle=C.red;ctx.textAlign='center';ctx.fillText(stepLabel,W/2+80,H-10);ctx.textAlign='left';}
+}
+resetAnim();
+</script>
+</body>
+</html>
