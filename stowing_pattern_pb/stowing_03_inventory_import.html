@@ -96,6 +96,7 @@ let binItems=[],binAtStation=false,binStored=false,scanFlash=0;
 let csvProgress=0,csvSent=false,asrsReceived=false;
 let phase=1,carrying=false,amrCarrying=false;
 let log=[],steps=[],stepIdx=0,t=0,animRunning=false,animId=null,lastTime=0,stepLabel='';
+let stowResult=false,stowResultAnim=0; // Stow Result event
 // CSV animation particle
 let csvParticle={x:CSV_FROM.x,y:CSV_FROM.y,visible:false};
 let csvParticleT=0;
@@ -126,7 +127,8 @@ function buildSteps(){
   st.push({type:'amr_to_asrs',msg:'AMR が ASRS 内部へ Bin を格納'});
   st.push({type:'bin_stored',msg:'Bin 格納完了 ✓'});
   st.push({type:'wk_move',to:{...WORKER_HOME},msg:'作業者 ホームへ'});
-  st.push({type:'done',msg:'外部データ連携による在庫登録 完了'});
+   st.push({type:'stow_result',msg:'Stow Result — 格納実績データ生成'});
+ st.push({type:'done',msg:'外部データ連携による在庫登録 完了'});
   return st;
 }
 
@@ -156,8 +158,10 @@ function commitStep(s){
   if(s.type==='phase3'){phase=3;}
   if(s.type==='amr_pickup'){amrCarrying=true;binAtStation=false;}
   if(s.type==='bin_stored'){binStored=true;amrCarrying=false;addLog('Bin ASRS 格納完了 ✓');}
+  if(s.type==='stow_result'){stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
   if(s.type==='done'){addLog('③ 外部データ連携 完了');}
   if(scanFlash>0)scanFlash--;
+  if(stowResultAnim>0)stowResultAnim--;
 }
 function addLog(m){log.unshift(m);if(log.length>8)log.pop();}
 
@@ -173,7 +177,7 @@ function resetAnim(){
   wk={...WORKER_HOME};wkFrom={...wk};wkTo={...wk};
   binPos={...BIN_HOME};binFrom={...binPos};binTo={...binPos};
   amrPos={...AMR_HOME};amrFrom={...amrPos};amrTo={...amrPos};
-  binItems=[];binAtStation=false;binStored=false;scanFlash=0;
+  binItems=[];binAtStation=false;binStored=false;stowResult=false;stowResultAnim=0;scanFlash=0;
   csvProgress=0;csvSent=false;asrsReceived=false;
   phase=1;carrying=false;amrCarrying=false;
   csvParticle={x:CSV_FROM.x,y:CSV_FROM.y,visible:false};csvParticleT=0;
@@ -184,9 +188,10 @@ function loop(ts){
   const spd=parseFloat(document.getElementById('speed').value);
   const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
   const s=steps[stepIdx];
-  const instant=s&&['wms_scan','item_to_bin','csv_gen','asrs_receive','tile_scan','phase2','phase3','station_ready','amr_pickup','bin_stored','done'].includes(s.type);
+  const instant=s&&['wms_scan','item_to_bin','csv_gen','asrs_receive','tile_scan','phase2','phase3','station_ready','amr_pickup','bin_stored','stow_result','done'].includes(s.type);
   t+=dt*spd*(instant?3:s&&s.type==='csv_send'?1.5:0.65);
   if(scanFlash>0)scanFlash--;
+  if(stowResultAnim>0)stowResultAnim--;
   // CSV particle animation
   if(csvParticle.visible){
     csvParticleT=Math.min(csvParticleT+dt*spd*0.8,1);
@@ -205,18 +210,20 @@ function sf(sz,w='400'){ctx.font=`${w} ${sz}px 'Noto Sans JP','Open Sans',sans-s
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle=C.floorBg;ctx.fillRect(FZ.x,FZ.y,FZ.w,FZ.h);
-  ctx.fillStyle=C.stationBg;ctx.fillRect(SZ.x,SZ.y,SZ.w,SZ.h);
-  ctx.fillStyle=C.asrsBg;ctx.fillRect(AZ.x,AZ.y,AZ.w,AZ.h);
+  const ASRS_UX=SZ.x,ASRS_UY=SZ.y,ASRS_UW=AZ.x+AZ.w-SZ.x,ASRS_UH=SZ.h;
+  ctx.fillStyle=C.asrsBg;ctx.fillRect(ASRS_UX,ASRS_UY,ASRS_UW,ASRS_UH);
   ctx.strokeStyle=C.border;ctx.lineWidth=1;
-  ctx.strokeRect(FZ.x,FZ.y,FZ.w,FZ.h);ctx.strokeRect(SZ.x,SZ.y,SZ.w,SZ.h);ctx.strokeRect(AZ.x,AZ.y,AZ.w,AZ.h);
+  ctx.strokeRect(FZ.x,FZ.y,FZ.w,FZ.h);ctx.strokeRect(ASRS_UX,ASRS_UY,ASRS_UW,ASRS_UH);
   ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
-  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('STOWING STATION',22,19);
+  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('Inbound process　入荷工程',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('③ INVENTORY IMPORT',W-22,19);ctx.textAlign='left';
   sf(8,'700');ctx.fillStyle=C.textLight;
-  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ STOW STATION',SZ.x+8,44);ctx.fillText('/ ASRS',AZ.x+8,44);
+  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS（Stow Station + Storage）',SZ.x+8,44);
 
-  drawGoods();drawWMSTerminal();drawBin();drawCSVFlow();
-  drawTile();drawASRSGrid();drawWorker();drawAMR();
+  drawTile(); // drawn first so animations appear on top
+
+  drawGoods();drawWMSTerminal();drawBin();drawASRSGrid();drawWorker();drawAMR();drawCSVFlow();
+  if(stowResult)drawStowResult();
   drawLogPanel();drawProgress();
   ctx.fillStyle=C.black;ctx.fillRect(14,28,2,252);
 }
@@ -260,24 +267,49 @@ function drawWMSTerminal(){
 
 function drawCSVFlow(){
   if(!csvProgress)return;
-  // Dashed arrow from WMS to ASRS
-  const dx=CSV_TO.x-CSV_FROM.x,dy=CSV_TO.y-CSV_FROM.y;
-  ctx.strokeStyle=csvSent?C.csv:'#aaa';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
+  // Arrow from WMS terminal to ASRS zone — thick, colored
+  ctx.strokeStyle=csvSent?'#e11a27':'#aaa';ctx.lineWidth=csvSent?3:1.5;ctx.setLineDash([6,5]);
   ctx.beginPath();ctx.moveTo(CSV_FROM.x,CSV_FROM.y);ctx.lineTo(CSV_TO.x,CSV_TO.y);ctx.stroke();
   ctx.setLineDash([]);
-  sf(8,'700');ctx.fillStyle=csvSent?C.csv:C.textLight;ctx.textAlign='center';
-  ctx.fillText('CSV / API',CSV_FROM.x+(CSV_TO.x-CSV_FROM.x)/2,CSV_FROM.y+(CSV_TO.y-CSV_FROM.y)/2-8);ctx.textAlign='left';
-  // ASRS received indicator
-  if(asrsReceived){
-    ctx.fillStyle=C.csv+'22';ctx.strokeStyle=C.csv;ctx.lineWidth=1;
-    ctx.beginPath();ctx.rect(AZ.x+8,AZ.y+8,100,22);ctx.fill();ctx.stroke();
-    sf(8,'700');ctx.fillStyle=C.csv;ctx.fillText('データ受信 ✓',AZ.x+14,AZ.y+23);
+  // Arrowhead pointing to ASRS
+  const ang=Math.atan2(CSV_TO.y-CSV_FROM.y,CSV_TO.x-CSV_FROM.x);
+  ctx.fillStyle=csvSent?'#e11a27':'#aaa';
+  ctx.beginPath();
+  ctx.moveTo(CSV_TO.x,CSV_TO.y);
+  ctx.lineTo(CSV_TO.x-14*Math.cos(ang-0.4),CSV_TO.y-14*Math.sin(ang-0.4));
+  ctx.lineTo(CSV_TO.x-14*Math.cos(ang+0.4),CSV_TO.y-14*Math.sin(ang+0.4));
+  ctx.closePath();ctx.fill();
+  // Label on arrow: "在庫登録データ"
+  const mx=CSV_FROM.x+(CSV_TO.x-CSV_FROM.x)*0.42;
+  const my=CSV_FROM.y+(CSV_TO.y-CSV_FROM.y)*0.42;
+  ctx.fillStyle=csvSent?'#e11a2722':'#f5f5f5';ctx.strokeStyle=csvSent?'#e11a27':'#ccc';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.rect(mx-56,my-26,112,22);ctx.fill();ctx.stroke();
+  sf(11,'700');ctx.fillStyle=csvSent?'#e11a27':'#888';ctx.textAlign='center';
+  ctx.fillText('在庫登録データ',mx,my-11);ctx.textAlign='left';
+  // "→ ASRSシステム" label near arrowhead
+  const lx=CSV_TO.x-20,ly=CSV_TO.y+20;
+  ctx.fillStyle=csvSent?'#e11a2218':'#f0f0f0';ctx.strokeStyle=csvSent?'#e11a2288':'#ddd';ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(lx-62,ly-14,124,18);ctx.fill();ctx.stroke();
+  sf(10,'700');ctx.fillStyle=csvSent?'#e11a27':'#aaa';ctx.textAlign='center';
+  ctx.fillText('▼ ASRS システムへ連携',lx,ly);ctx.textAlign='left';
+  // ASRS received indicator — hide once Stow Result is shown
+  if(asrsReceived&&!stowResult){
+    ctx.fillStyle='#e11a2722';ctx.strokeStyle='#e11a27';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.rect(AZ.x+4,AZ.y+AZ.h-52,AZ.w-8,46);ctx.fill();ctx.stroke();
+    sf(15,'700');ctx.fillStyle='#e11a27';ctx.textAlign='center';
+    ctx.fillText('データ連携完了 ✓',AZ.x+AZ.w/2,AZ.y+AZ.h-30);
+    sf(10,'300');ctx.fillStyle='#e11a27';
+    ctx.fillText('ASRS 在庫登録済み',AZ.x+AZ.w/2,AZ.y+AZ.h-12);
+    ctx.textAlign='left';
   }
-  // Moving CSV particle
+  // Moving data particle — larger
   if(csvParticle.visible&&!csvSent){
-    ctx.fillStyle=C.wms;ctx.strokeStyle=C.white;ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(csvParticle.x,csvParticle.y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
-    sf(7,'700');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('CSV',csvParticle.x,csvParticle.y+3);ctx.textAlign='left';
+    ctx.fillStyle=C.wms;ctx.strokeStyle=C.white;ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(csvParticle.x,csvParticle.y,14,0,Math.PI*2);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle='#fff';ctx.textAlign='center';
+    ctx.fillText('在庫',csvParticle.x,csvParticle.y-1);
+    ctx.fillText('データ',csvParticle.x,csvParticle.y+10);
+    ctx.textAlign='left';
   }
 }
 
@@ -303,14 +335,29 @@ function drawBin(){
 }
 
 function drawTile(){
+  const x=TILE.x,y=TILE.y,w=TILE.w,h=TILE.h;
   const active=binAtStation||phase>=2;
-  ctx.fillStyle=active?'#e8f2e8':'#efefef';ctx.strokeStyle=active?'#4a7c59':'#ccc';ctx.lineWidth=active?1.5:1;
-  ctx.beginPath();ctx.rect(TILE.x,TILE.y,TILE.w,TILE.h);ctx.fill();ctx.stroke();
-  ctx.strokeStyle=active?'#4a7c5933':'#cccccc55';ctx.lineWidth=1;
-  for(let gx=TILE.x+14;gx<TILE.x+TILE.w;gx+=14){ctx.beginPath();ctx.moveTo(gx,TILE.y);ctx.lineTo(gx,TILE.y+TILE.h);ctx.stroke();}
-  for(let gy=TILE.y+14;gy<TILE.y+TILE.h;gy+=14){ctx.beginPath();ctx.moveTo(TILE.x,gy);ctx.lineTo(TILE.x+TILE.w,gy);ctx.stroke();}
-  sf(8,'700');ctx.fillStyle=active?'#4a7c59':C.textLight;ctx.textAlign='center';
-  ctx.fillText('Stow Tile',TILE.x+TILE.w/2,TILE.y+TILE.h+12);ctx.textAlign='left';
+  // Outer cell background — matches ASRS grid style
+  ctx.fillStyle=active?'#dce8f0':'#f0f0f8';
+  ctx.strokeStyle=active?'#3a6186':'#cccccc';
+  ctx.lineWidth=active?2:1;
+  ctx.beginPath();ctx.rect(x,y,w,h);ctx.fill();ctx.stroke();
+  // Inner Bin placeholder (dashed border) when empty
+  if(!active){
+    ctx.strokeStyle='#dddddd';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.rect(x+8,y+8,w-16,h-16);ctx.stroke();ctx.setLineDash([]);
+  }
+  // "Stowing station" label — outside tile, center-bottom
+  sf(12,'700');ctx.fillStyle=active?'#3a6186':C.textLight;ctx.textAlign='center';
+  ctx.fillText('Stowing station',x+w/2,y+h+16);
+  sf(10,'300');ctx.fillStyle=active?'#3a6186':C.textLight;
+  ctx.fillText('格納ステーション',x+w/2,y+h+30);ctx.textAlign='left';
+  // Scan flash overlay
+  if(scanFlash>0&&binAtStation){
+    ctx.fillStyle=`rgba(58,97,134,${scanFlash/20*0.25})`;ctx.fillRect(x,y,w,h);
+    sf(9,'700');ctx.fillStyle='#3a6186';ctx.textAlign='center';
+    ctx.fillText('SCAN ✓',x+w/2,y+h/2+4);ctx.textAlign='left';
+  }
 }
 
 function drawASRSGrid(){
@@ -357,6 +404,18 @@ function drawAMR(){
   ctx.fillStyle=C.amr;ctx.strokeStyle=C.white;ctx.lineWidth=2;
   ctx.beginPath();ctx.arc(ax,ay,14,0,Math.PI*2);ctx.fill();ctx.stroke();
   sf(9,'700');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('AMR',ax,ay+4);ctx.textAlign='left';
+}
+
+
+function drawStowResult(){
+  // Same tone as ASN confirmed / ASN連携なし banners
+  ctx.fillStyle='#e11a2722';ctx.strokeStyle='#e11a27';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.rect(AZ.x+2,AZ.y+AZ.h-52,AZ.w-4,46);ctx.fill();ctx.stroke();
+  sf(16,'700');ctx.fillStyle='#e11a27';ctx.textAlign='center';
+  ctx.fillText('Stow Result  格納実績イベント生成',AZ.x+AZ.w/2,AZ.y+AZ.h-30);
+  sf(10,'300');ctx.fillStyle='#e11a27';
+  ctx.fillText('格納実績データが作成されました',AZ.x+AZ.w/2,AZ.y+AZ.h-12);
+  ctx.textAlign='left';
 }
 
 function drawLogPanel(){
