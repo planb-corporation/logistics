@@ -39,7 +39,7 @@ canvas { display:block; border:1px solid #e0e0e0; }
   <div class="header-div"></div>
   <span class="badge">① Berth Receiving</span>
 </div>
-<p class="subtitle">ASN と商品を照合しながら Bin に積み付け → 管理者確定 → ステーション経由で ASRS へ格納</p>
+<p class="subtitle">ASN（入荷予定）と照合しながら商品をBinに積み付け → 管理者確定 → ステーション経由でASRSへ格納</p>
 <div class="controls">
   <button class="btn" id="startBtn" onclick="toggleAnim()">▶ Start</button>
   <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
@@ -207,7 +207,7 @@ function draw(){
   ctx.strokeRect(AZ.x,AZ.y,AZ.w,AZ.h);
   // Header
   ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
-  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('STOWING STATION',22,19);
+  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('STOWING STATION　格納ステーション',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('① BERTH RECEIVING',W-22,19);ctx.textAlign='left';
   // Zone labels
   sf(8,'700');ctx.fillStyle=C.textLight;
