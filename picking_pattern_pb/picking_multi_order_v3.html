@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>② Multi Order Picking — Picking Station</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #fff; color: #111; font-family: 'Noto Sans JP','Open Sans',sans-serif; display: flex; flex-direction: column; align-items: center; padding: 24px; -webkit-font-smoothing: antialiased; }
+.header { width: 920px; display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; padding-bottom: 16px; border-bottom: 1px solid #e0e0e0; }
+.header-slash { font-size: 13px; color: #ccc; }
+.header-en { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; color: #aaa; text-transform: uppercase; }
+.header-title { font-size: 15px; font-weight: 700; color: #111; }
+.header-div { flex: 1; height: 1px; background: #e8e8e8; align-self: center; }
+.badge { background: #111; color: #fff; font-size: 10px; font-weight: 700; padding: 4px 12px; letter-spacing: 1px; text-transform: uppercase; }
+.subtitle { width: 920px; font-size: 11px; font-weight: 300; color: #aaa; margin-bottom: 14px; }
+.controls { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; width: 920px; }
+.btn { padding: 8px 24px; border: 1px solid #111; background: #111; color: #fff; cursor: pointer; font-size: 11px; font-weight: 700; font-family: 'Noto Sans JP','Open Sans',sans-serif; letter-spacing: 1.5px; text-transform: uppercase; transition: all 0.15s; }
+.btn:hover { background: #333; border-color: #333; }
+.btn-reset { background: #fff; color: #777; border-color: #ccc; }
+.btn-reset:hover { background: #f5f5f5; }
+.speed-label { font-size: 10px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+input[type=range] { width: 90px; accent-color: #111; }
+canvas { display: block; border: 1px solid #e0e0e0; }
+.info-panel { width: 920px; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #e0e0e0; margin-top: 1px; }
+.info-box { padding: 16px 20px; font-size: 12px; line-height: 2; color: #666; font-weight: 300; }
+.info-box:first-child { border-right: 1px solid #e0e0e0; }
+.info-box h3 { font-size: 9px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: #bbb; margin-bottom: 8px; }
+.hl { color: #111; font-weight: 700; }
+.tag { display: inline-block; padding: 1px 8px; font-size: 10px; font-weight: 700; margin-right: 4px; border: 1px solid currentColor; }
+.tg { color: #4a7c59; }
+.tr { color: #a04040; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-slash">/</span>
+  <span class="header-en">Pattern 02</span>
+  <span class="header-title">Multi Order Picking</span>
+  <div class="header-div"></div>
+  <span class="badge">② Multi Order</span>
+</div>
+<p class="subtitle">複数オーダーを同時並行処理 / 作業者が SKU Bin を1回訪問し、複数 Order Box へ即時振り分け</p>
+<div class="controls">
+  <button class="btn" id="startBtn" onclick="toggleAnim()">▶ Start</button>
+  <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+  <span class="speed-label">Speed <input type="range" id="speed" min="1" max="6" value="2"></span>
+</div>
+<canvas id="c" width="920" height="500"></canvas>
+<div class="info-panel">
+  <div class="info-box">
+    <h3>/ Multi Order Picking とは</h3>
+    <span class="hl">複数オーダーを同時並行</span>で処理する方式。<br>
+    作業者が SKU Bin を<span class="hl">1回訪問するだけ</span>で、<br>
+    その Bin に必要な全オーダー分をピックし、<br>
+    それぞれの Order Box へ即時振り分けます。
+  </div>
+  <div class="info-box">
+    <h3>/ 効率評価（①との比較）</h3>
+    Bin 訪問回数：<span class="hl">4回</span>（① Single は12回）<br>
+    ピック総数：<span class="hl">12回</span>（同じ）<br>
+    同時処理：<span class="hl">あり（最大4オーダー並列）</span><br><br>
+    <span class="tag tg">✓ 長所</span> 移動距離が大幅に短縮<br>
+    <span class="tag tr">× 短所</span> 作業が複雑、誤ピックリスク増
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const W=920,H=500;
+const C={
+  bg:'#f8f8f8',white:'#ffffff',border:'#e0e0e0',
+  text:'#111',textMid:'#555',textLight:'#aaa',black:'#111',
+  A:'#3a6186',B:'#4a7c59',C_:'#7c6a3a',D:'#6a3a6f',
+  O1:'#a04040',O2:'#3a5f8a',O3:'#4a7c59',O4:'#7c6a3a',
+};
+const BW=128,BH=90;
+const SKU_BINS=[
+  {id:'A',x:36, y:70, color:C.A,  items:['A1','A2','A3']},
+  {id:'B',x:180,y:70, color:C.B,  items:['B1','B2','B3']},
+  {id:'C',x:36, y:178,color:C.C_, items:['C1','C2','C3']},
+  {id:'D',x:180,y:178,color:C.D,  items:['D1','D2','D3']},
+];
+const ORDER_BINS=[
+  {id:'Order 1',x:572,y:70, color:C.O1},
+  {id:'Order 2',x:716,y:70, color:C.O2},
+  {id:'Order 3',x:572,y:178,color:C.O3},
+  {id:'Order 4',x:716,y:178,color:C.O4},
+];
+const BIN_VISITS=[
+  {sku:'A',picks:[{item:'A1',order:'Order 1'},{item:'A3',order:'Order 2'},{item:'A2',order:'Order 4'}]},
+  {sku:'B',picks:[{item:'B2',order:'Order 1'},{item:'B1',order:'Order 2'},{item:'B3',order:'Order 3'}]},
+  {sku:'C',picks:[{item:'C3',order:'Order 1'},{item:'C1',order:'Order 2'},{item:'C2',order:'Order 3'}]},
+  {sku:'D',picks:[{item:'D1',order:'Order 3'},{item:'D2',order:'Order 4'},{item:'D3',order:'Order 4'}]},
+];
+const HOME={x:388,y:395};
+let hand={...HOME},handFrom={...HOME},handTo={...HOME};
+let pickedItems={},pickedSKUs={},completedOrders={},currentItem=null,currentOrder=null,currentSKU=null;
+let log=[],steps=[],stepIdx=0,t=0,animRunning=false,animId=null,lastTime=0,stepLabel='';
+
+function skuC(id){const b=SKU_BINS.find(x=>x.id===id);return{x:b.x+BW/2,y:b.y+BH/2};}
+function ordC(id){const b=ORDER_BINS.find(x=>x.id===id);return{x:b.x+BW/2,y:b.y+BH/2};}
+function initState(){
+  hand={...HOME};handFrom={...hand};handTo={...hand};
+  pickedItems={};ORDER_BINS.forEach(b=>{pickedItems[b.id]=[];});
+  pickedSKUs={};completedOrders={};currentItem=null;currentOrder=null;currentSKU=null;log=[];stepLabel='';
+}
+function buildSteps(){
+  const st=[];
+  BIN_VISITS.forEach(visit=>{
+    st.push({type:'to_sku',sku:visit.sku,msg:`作業者 → SKU Bin ${visit.sku}`});
+    visit.picks.forEach((p,i)=>{
+      st.push({type:'pick',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} を Bin ${visit.sku} からピック`});
+      st.push({type:'to_order',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} → ${p.order} へ搬送`});
+      st.push({type:'drop',sku:visit.sku,item:p.item,order:p.order,msg:`${p.item} を ${p.order} に収納 ✓`});
+      if(i<visit.picks.length-1)
+        st.push({type:'back_to_sku',sku:visit.sku,msg:`Bin ${visit.sku} へ戻る`});
+    });
+    st.push({type:'home',sku:visit.sku,msg:`ホームへ戻る`});
+  });
+  st.push({type:'done',msg:'全オーダー完了'});
+  return st;
+}
+function prep(idx){
+  if(idx>=steps.length)return;
+  const s=steps[idx];handFrom={...hand};
+  if(s.type==='to_sku'||s.type==='back_to_sku')handTo=skuC(s.sku);
+  else if(s.type==='to_order')handTo=ordC(s.order);
+  else if(s.type==='home')handTo={...HOME};
+  else handTo={...hand};
+  stepLabel=s.msg||'';if(s.sku)currentSKU=s.sku;if(s.order)currentOrder=s.order;
+}
+function commit(s){
+  hand={...handTo};
+  if(s.type==='pick')currentItem=s.item;
+  if(s.type==='drop'){
+    pickedItems[s.order].push(s.item);pickedSKUs[s.item]=true;currentItem=null;
+    addLog(`${s.item} → ${s.order}`);
+    if(pickedItems[s.order].length===3){completedOrders[s.order]=true;addLog(`${s.order} 完了`);}
+  }
+  if(s.type==='home'){currentSKU=null;currentOrder=null;}
+  if(s.type==='done')addLog('全オーダー処理完了');
+}
+function addLog(m){log.unshift(m);if(log.length>8)log.pop();}
+function toggleAnim(){
+  if(stepIdx>=steps.length){resetAnim();return;}
+  animRunning=!animRunning;
+  document.getElementById('startBtn').textContent=animRunning?'⏸ Pause':'▶ Resume';
+  if(animRunning){lastTime=performance.now();loop(lastTime);}
+}
+function resetAnim(){
+  animRunning=false;if(animId)cancelAnimationFrame(animId);
+  document.getElementById('startBtn').textContent='▶ Start';
+  initState();steps=buildSteps();stepIdx=0;t=0;prep(0);draw();
+}
+function loop(ts){
+  if(!animRunning)return;
+  const spd=parseFloat(document.getElementById('speed').value);
+  const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+  const s=steps[stepIdx];
+  t+=dt*spd*(s&&(s.type==='pick'||s.type==='drop'||s.type==='done')?3:0.7);
+  if(t>=1){commit(steps[stepIdx]);stepIdx++;t=0;
+    if(stepIdx>=steps.length){animRunning=false;document.getElementById('startBtn').textContent='完了';draw();return;}
+    prep(stepIdx);}
+  draw();animId=requestAnimationFrame(loop);
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function ease(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function sf(size,weight='400'){ctx.font=`${weight} ${size}px 'Noto Sans JP','Open Sans',sans-serif`;}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  drawStation();drawSKULabel();drawOrderLabel();drawCounter();
+  SKU_BINS.forEach(drawBin);ORDER_BINS.forEach(drawOrder);
+  drawHome();drawHand();drawLog();drawProgress();
+}
+function drawStation(){
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(12,30,896,330);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(12,30,896,28);
+  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('PICKING STATION',22,49);
+  sf(10,'500');ctx.fillStyle='#888';ctx.textAlign='right';
+  ctx.fillText('② MULTI ORDER',W-22,49);ctx.textAlign='left';
+  ctx.fillStyle=C.black;ctx.fillRect(12,58,2,302);
+}
+function drawSKULabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ SKU BINS',36,66);}
+function drawOrderLabel(){sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ ORDER BOXES',572,66);}
+function drawCounter(){
+  const visits=steps.slice(0,stepIdx).filter(s=>s.type==='to_sku').length;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(326,370,230,30);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(326,370,2,30);
+  sf(11,'700');ctx.fillStyle=C.text;ctx.fillText(`Bin 訪問回数: ${visits} / 4 回`,336,390);
+  sf(9,'300');ctx.fillStyle=C.textLight;ctx.fillText('（① Single なら12回）',336,405);
+}
+function drawBin(b){
+  const isActive=currentSKU===b.id;
+  ctx.fillStyle=isActive?b.color+'18':C.white;
+  ctx.strokeStyle=isActive?b.color:C.border;ctx.lineWidth=isActive?1.5:1;
+  ctx.beginPath();ctx.rect(b.x,b.y,BW,BH);ctx.fill();ctx.stroke();
+  ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,BW,2);
+  if(isActive){
+    ctx.strokeStyle=b.color+'44';ctx.lineWidth=4;
+    ctx.beginPath();ctx.rect(b.x-3,b.y-3,BW+6,BH+6);ctx.stroke();ctx.lineWidth=1;
+  }
+  sf(10,'700');ctx.fillStyle=isActive?b.color:C.textMid;ctx.fillText(`SKU Bin ${b.id}`,b.x+8,b.y+16);
+  b.items.forEach((item,i)=>{
+    const picked=!!pickedSKUs[item],isCur=currentItem===item;
+    const ix=b.x+6+(i%3)*40,iy=b.y+24;
+    ctx.fillStyle=isCur?b.color+'22':picked?C.bg:'#f0f0f0';
+    ctx.strokeStyle=isCur?b.color:picked?C.border:b.color+'66';ctx.lineWidth=isCur?1.5:1;
+    ctx.beginPath();ctx.rect(ix,iy,35,52);ctx.fill();ctx.stroke();
+    sf(9,isCur?'700':picked?'300':'500');
+    ctx.fillStyle=isCur?b.color:picked?C.textLight:C.text;
+    ctx.textAlign='center';ctx.fillText(item,ix+17,iy+18);
+    if(picked){
+      let destOrd=null;
+      BIN_VISITS.forEach(v=>v.picks.forEach(p=>{if(p.item===item)destOrd=p.order;}));
+      const oc=destOrd?ORDER_BINS.find(x=>x.id===destOrd)?.color:b.color;
+      sf(13,'700');ctx.fillStyle=oc+'bb';ctx.fillText('✓',ix+17,iy+38);
+    }
+    ctx.textAlign='left';
+    if(isActive&&!picked){
+      const rem=b.items.filter(it=>!pickedSKUs[it]).length;
+      sf(7,'500');ctx.fillStyle=b.color;ctx.textAlign='right';
+      ctx.fillText(`残${rem}`,b.x+BW-4,b.y+BH-4);ctx.textAlign='left';
+    }
+  });
+}
+function drawOrder(b){
+  const done=!!completedOrders[b.id],isCur=currentOrder===b.id&&!done;
+  ctx.fillStyle=isCur?b.color+'12':done?b.color+'18':C.white;
+  ctx.strokeStyle=isCur?b.color:done?b.color+'cc':C.border;ctx.lineWidth=(isCur||done)?1.5:1;
+  ctx.beginPath();ctx.rect(b.x,b.y,BW,BH);ctx.fill();ctx.stroke();
+  ctx.fillStyle=b.color;ctx.fillRect(b.x,b.y,BW,2);
+  sf(10,'700');ctx.fillStyle=b.color;ctx.fillText(b.id,b.x+8,b.y+16);
+  const filled=(pickedItems[b.id]||[]).length;
+  for(let i=0;i<3;i++){
+    ctx.fillStyle=i<filled?b.color:C.bg;ctx.strokeStyle=i<filled?b.color:C.border;ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(b.x+BW-16-(2-i)*13,b.y+12,4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  (pickedItems[b.id]||[]).forEach((item,i)=>{
+    const sc=SKU_BINS.find(s=>s.items.includes(item))?.color||b.color;
+    ctx.fillStyle=sc+'18';ctx.strokeStyle=sc+'66';ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(b.x+6+(i%3)*40,b.y+24,35,52);ctx.fill();ctx.stroke();
+    sf(9,'500');ctx.fillStyle=sc;ctx.textAlign='center';
+    ctx.fillText(item,b.x+6+(i%3)*40+17,b.y+53);ctx.textAlign='left';
+  });
+  if(done){
+    ctx.fillStyle=b.color+'18';ctx.beginPath();ctx.rect(b.x+2,b.y+2,BW-4,BH-4);ctx.fill();
+    sf(13,'700');ctx.fillStyle=b.color;ctx.textAlign='center';
+    ctx.fillText('DONE',b.x+BW/2,b.y+BH/2+5);ctx.textAlign='left';
+  }
+}
+function drawHome(){
+  const px=HOME.x,py=HOME.y;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(px-30,py-22,60,60);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(px-30,py-22,60,2);
+  ctx.font='30px serif';ctx.textAlign='center';ctx.fillText('🧑‍🏭',px,py+22);
+  sf(8,'500');ctx.fillStyle=C.textLight;ctx.fillText('作業者',px,py+47);ctx.textAlign='left';
+}
+function drawHand(){
+  const et=ease(Math.min(t,1));
+  const hx=lerp(handFrom.x,handTo.x,et),hy=lerp(handFrom.y,handTo.y,et);
+  ctx.strokeStyle=C.textLight;ctx.lineWidth=1;ctx.setLineDash([3,5]);
+  ctx.beginPath();ctx.moveTo(handFrom.x,handFrom.y);ctx.lineTo(hx,hy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=C.black;ctx.strokeStyle=C.white;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(hx,hy,17,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.font='15px serif';ctx.textAlign='center';ctx.fillText('✋',hx,hy+6);ctx.textAlign='left';
+  if(currentItem){
+    const sc=SKU_BINS.find(s=>s.items.includes(currentItem))?.color||C.black;
+    ctx.fillStyle=C.white;ctx.strokeStyle=sc;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.rect(hx-18,hy-34,36,17);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle=sc;ctx.textAlign='center';ctx.fillText(currentItem,hx,hy-23);ctx.textAlign='left';
+  }
+  sf(8,'700');ctx.fillStyle=C.textMid;ctx.textAlign='center';ctx.fillText('作業者',hx,hy+33);ctx.textAlign='left';
+  const picks=steps.slice(0,stepIdx).filter(s=>s.type==='drop').length;
+  sf(9,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
+  ctx.fillText(`${picks} / 12 picks`,hx,hy-50);ctx.textAlign='left';
+}
+function drawLog(){
+  const lx=30,ly=372,lw=286,lh=116;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(lx,ly,lw,lh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(lx,ly,2,lh);
+  sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ ACTION LOG',lx+10,ly+14);
+  log.slice(0,6).forEach((m,i)=>{
+    sf(10,i===0?'500':'300');ctx.fillStyle=i===0?C.text:C.textLight;ctx.fillText(m,lx+10,ly+28+i*15);
+  });
+}
+function drawProgress(){
+  const bx=326,by=372,bw=584,bh=116;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(bx,by,2,bh);
+  sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ PROGRESS',bx+10,by+14);
+  ORDER_BINS.forEach((b,i)=>{
+    const cx=i%2===0?bx+10:bx+bw/2+10,ry=Math.floor(i/2)===0?by+22:by+22+42,bw2=bw/2-24;
+    const filled=(pickedItems[b.id]||[]).length;
+    ctx.fillStyle=C.bg;ctx.beginPath();ctx.rect(cx,ry,bw2,10);ctx.fill();
+    ctx.strokeStyle=C.border;ctx.lineWidth=1;ctx.beginPath();ctx.rect(cx,ry,bw2,10);ctx.stroke();
+    ctx.fillStyle=b.color+(completedOrders[b.id]?'ff':'bb');
+    ctx.beginPath();ctx.rect(cx,ry,bw2*(filled/3),10);ctx.fill();
+    sf(9,'300');ctx.fillStyle=b.color;ctx.fillText(`${b.id}  ${filled}/3`,cx,ry+24);
+  });
+  const tot=steps.length,cur=Math.min(stepIdx+1,tot);
+  sf(9,'300');ctx.fillStyle=C.textLight;ctx.textAlign='right';
+  ctx.fillText(`Step ${cur} / ${tot}`,W-14,H-10);ctx.textAlign='left';
+  if(stepLabel){sf(10,'300');ctx.fillStyle=C.textMid;ctx.textAlign='center';ctx.fillText(stepLabel,bx+bw/2+100,H-10);ctx.textAlign='left';}
+}
+resetAnim();
+</script>
+</body>
+</html>

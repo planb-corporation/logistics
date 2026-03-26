@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picking Patterns — Rapyuta ASRS</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  background: #fff;
+  color: #111;
+  font-family: 'Noto Sans JP', 'Open Sans', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* HEADER */
+header {
+  padding: 24px 60px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  color: #aaa;
+  text-transform: uppercase;
+}
+
+/* HERO */
+.hero {
+  padding: 80px 60px 64px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #aaa;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.eyebrow::before { content: '/'; color: #ccc; }
+.hero h1 {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+  color: #111;
+  margin-bottom: 6px;
+}
+.hero h1 span { font-weight: 300; }
+.hero-sub {
+  font-size: 13px;
+  font-weight: 300;
+  color: #777;
+  line-height: 1.9;
+  margin-top: 16px;
+  max-width: 500px;
+}
+.hero-note {
+  margin-top: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  padding: 11px 20px;
+  font-size: 11px;
+  font-weight: 300;
+  color: #777;
+}
+.hero-note strong { color: #111; font-weight: 700; }
+
+/* CARDS SECTION */
+.cards-wrap {
+  padding: 60px;
+  flex: 1;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.section-header .slash { font-size: 12px; color: #ccc; }
+.section-header .label-en {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #aaa;
+  text-transform: uppercase;
+}
+.section-header .label-jp {
+  font-size: 11px;
+  font-weight: 300;
+  color: #aaa;
+}
+.section-divider {
+  flex: 1;
+  height: 1px;
+  background: #e8e8e8;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: #e0e0e0;
+  border: 1px solid #e0e0e0;
+}
+.card {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s;
+}
+.card:hover { background: #fafafa; }
+.card:hover .card-arrow { transform: translateX(5px); color: #111; }
+.card:hover .card-top { background: #111; }
+
+.card-top {
+  height: 2px;
+  background: #e0e0e0;
+  transition: background 0.2s;
+}
+.card-body { padding: 32px; flex: 1; display: flex; flex-direction: column; }
+.card-num {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #bbb;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 4px;
+  letter-spacing: -0.3px;
+}
+.card-title-jp {
+  font-size: 11px;
+  font-weight: 300;
+  color: #aaa;
+  margin-bottom: 24px;
+  letter-spacing: 0.5px;
+}
+.card-desc {
+  font-size: 12px;
+  font-weight: 300;
+  color: #666;
+  line-height: 2;
+  flex: 1;
+}
+.card-meta {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #ebebeb;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.meta-key {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #ccc;
+  text-transform: uppercase;
+}
+.meta-val {
+  font-size: 11px;
+  font-weight: 500;
+  color: #444;
+}
+.meta-val.em { color: #111; font-weight: 700; }
+
+.card-footer {
+  padding: 16px 32px;
+  border-top: 1px solid #ebebeb;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-cta {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #aaa;
+  text-transform: uppercase;
+}
+.card-arrow {
+  color: #ccc;
+  font-size: 16px;
+  transition: transform 0.2s, color 0.2s;
+}
+
+/* FOOTER */
+footer {
+  padding: 20px 60px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+footer p {
+  font-size: 10px;
+  font-weight: 300;
+  color: #ccc;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:13px;font-weight:700;letter-spacing:1px;color:#111;">Picking Station Concept</span>
+  <span class="header-label">For Review Only</span>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">Rapyuta ASRS</div>
+  <h1>Picking <span>Patterns</span></h1>
+  <p class="hero-sub">ピッキングステーションにおける3つの作業方式のシミュレーションです。</p>
+  <div class="hero-note">
+    <strong>使い方</strong>
+    各カードをクリック → アニメーション画面で ▶ START を押してください
+  </div>
+</section>
+
+<section class="cards-wrap">
+  <div class="section-header">
+    <span class="slash">/</span>
+    <span class="label-en">3 Patterns</span>
+    <span class="label-jp">3つのピッキング方式</span>
+    <div class="section-divider"></div>
+  </div>
+
+  <div class="cards">
+    <!-- 01 -->
+    <a class="card" href="picking_single_order_v3.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 01</div>
+        <div class="card-title">Single Order</div>
+        <div class="card-title-jp">シングルオーダーピッキング</div>
+        <p class="card-desc">1オーダーずつ順番に処理する基本方式。作業者が SKU Bin を巡回し、1アイテムずつ対応する Order Box へ投入。シンプルで誤ピックが少ない。</p>
+        <div class="card-meta">
+          <div class="meta-row">
+            <span class="meta-key">Bin 訪問回数</span>
+            <span class="meta-val em">12 回</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">同時処理</span>
+            <span class="meta-val">なし（直列）</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">スループット</span>
+            <span class="meta-val">低</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="card-cta">アニメーションを見る</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- 02 -->
+    <a class="card" href="picking_multi_order_v3.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 02</div>
+        <div class="card-title">Multi Order</div>
+        <div class="card-title-jp">マルチオーダーピッキング</div>
+        <p class="card-desc">複数オーダーを同時並行で処理する方式。1回の Bin 訪問で複数オーダー分をまとめてピックし、即時振り分け。移動距離を大幅に削減。</p>
+        <div class="card-meta">
+          <div class="meta-row">
+            <span class="meta-key">Bin 訪問回数</span>
+            <span class="meta-val em">4 回</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">同時処理</span>
+            <span class="meta-val">あり（最大4オーダー）</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">スループット</span>
+            <span class="meta-val">中〜高</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="card-cta">アニメーションを見る</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+
+    <!-- 03 -->
+    <a class="card" href="picking_total_pick_v3.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 03</div>
+        <div class="card-title">Total Pick</div>
+        <div class="card-title-jp">トータルピック（種蒔き方式）</div>
+        <p class="card-desc">全アイテムを一括収集後、Sorter が自動仕分けする2フェーズ方式。Phase 1 で DAS/GAS へ全品目を集約し、Phase 2 で自動振り分け。大量オーダーに最適。</p>
+        <div class="card-meta">
+          <div class="meta-row">
+            <span class="meta-key">Bin 訪問回数</span>
+            <span class="meta-val em">4 回</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">仕分け</span>
+            <span class="meta-val">Sorter 自動処理</span>
+          </div>
+          <div class="meta-row">
+            <span class="meta-key">スループット</span>
+            <span class="meta-val">高</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="card-cta">アニメーションを見る</span>
+        <span class="card-arrow">→</span>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <p>Picking Station Concept — Rapyuta ASRS</p>
+  <p>For Review Only</p>
+</footer>
+
+</body>
+</html>
