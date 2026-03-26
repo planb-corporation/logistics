@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>③ Inventory Import — Stowing Station</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:#fff; color:#111; font-family:'Noto Sans JP','Open Sans',sans-serif; display:flex; flex-direction:column; align-items:center; padding:10px 24px; -webkit-font-smoothing:antialiased; }
+.header { width:920px; display:flex; align-items:baseline; gap:14px; margin-bottom:4px; padding-bottom:8px; border-bottom:1px solid #e0e0e0; }
+.header-slash { font-size:13px; color:#ccc; }
+.header-en { font-size:11px; font-weight:700; letter-spacing:2.5px; color:#aaa; text-transform:uppercase; }
+.header-title { font-size:15px; font-weight:700; color:#111; }
+.header-div { flex:1; height:1px; background:#e8e8e8; align-self:center; }
+.badge { background:#111; color:#fff; font-size:10px; font-weight:700; padding:4px 12px; letter-spacing:1px; text-transform:uppercase; }
+.subtitle { width:920px; font-size:11px; font-weight:300; color:#aaa; margin-bottom:6px; }
+.controls { display:flex; align-items:center; gap:12px; margin-bottom:7px; width:920px; }
+.btn { padding:6px 20px; border:1px solid #111; background:#111; color:#fff; cursor:pointer; font-size:11px; font-weight:700; font-family:'Noto Sans JP','Open Sans',sans-serif; letter-spacing:1.5px; text-transform:uppercase; transition:all 0.15s; }
+.btn:hover { background:#333; border-color:#333; }
+.btn-reset { background:#fff; color:#777; border-color:#ccc; }
+.btn-reset:hover { background:#f5f5f5; color:#444; }
+.speed-label { font-size:10px; color:#aaa; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
+input[type=range] { width:90px; accent-color:#111; }
+canvas { display:block; border:1px solid #e0e0e0; }
+.info-panel { width:920px; display:grid; grid-template-columns:1fr 1fr; border:1px solid #e0e0e0; margin-top:1px; }
+.info-box { padding:10px 20px; font-size:11px; line-height:1.7; color:#666; font-weight:300; }
+.info-box:first-child { border-right:1px solid #e0e0e0; }
+.info-box h3 { font-size:9px; font-weight:700; letter-spacing:2.5px; text-transform:uppercase; color:#bbb; margin-bottom:6px; }
+.hl { color:#111; font-weight:700; } .tg { color:#4a7c59; } .tr { color:#a04040; }
+</style>
+</head>
+<body>
+<div class="header">
+  <span class="header-slash">/</span>
+  <span class="header-en">Pattern 03</span>
+  <span class="header-title">Inventory Import — 外部データ連携による在庫登録</span>
+  <div class="header-div"></div>
+  <span class="badge">③ Inventory Import</span>
+</div>
+<p class="subtitle">上位 WMS で積み付けデータを作成 → CSV を ASRS API に連携 → Bin をステーション経由で ASRS へ格納</p>
+<div class="controls">
+  <button class="btn" id="startBtn" onclick="toggleAnim()">▶ Start</button>
+  <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+  <span class="speed-label">Speed <input type="range" id="speed" min="1" max="6" value="2"></span>
+</div>
+<canvas id="c" width="920" height="420"></canvas>
+<div class="info-panel">
+  <div class="info-box">
+    <h3>/ Inventory Import とは</h3>
+    <span class="hl">上位 WMS のハンディ</span>を使って Bin に積み付け。<br>
+    「どのBinのどのスロットに何がいくつ」という<br>
+    データを <span class="hl">CSV / API</span> で ASRS に連携します。
+  </div>
+  <div class="info-box">
+    <h3>/ 特徴</h3>
+    積み付け管理：<span class="hl">上位 WMS 側</span>（RR ハンディ不要）<br>
+    データ連携：<span class="hl">CSV アップロード or API</span><br>
+    想定用途：<span class="hl">上位 HT 使用・大量ロケ移動</span><br><br>
+    <span class="tg">✓ 上位 WMS 主体で完結できる</span><br>
+    <span class="tr">× CSV / API 連携の仕組みが必要</span>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const W=920,H=420;
+const C={
+  bg:'#f8f8f8',white:'#fff',border:'#e0e0e0',text:'#111',textMid:'#555',textLight:'#aaa',black:'#111',
+  floorBg:'#fafaf8',stationBg:'#f3f8f3',asrsBg:'#f3f3fb',
+  goods:'#b8813a',emptyBin:'#d8d8d8',
+  I1:'#3a6186',I2:'#4a7c59',I3:'#7c6a3a',
+  worker:'#7c6a3a',amr:'#6a3a6f',
+  wms:'#3a5a8a',csv:'#4a7c59',api:'#3a6186',
+};
+const FZ={x:14,y:30,w:314,h:250};
+const SZ={x:338,y:30,w:204,h:250};
+const AZ={x:552,y:30,w:354,h:250};
+const GOODS={x:28,y:65,w:76,h:96};
+const BIN_HOME={x:162,y:88,w:104,h:78};
+const WORKER_HOME={x:195,y:232};
+// Upper WMS terminal position
+const WMS_TERM={x:200,y:65,w:80,h:80};
+const TILE={x:370,y:78,w:124,h:116};
+const GX=560,GY=46,GW=100,GH=50,GG=5;
+const PRE=[{c:0,r:0,col:C.I1},{c:1,r:0,col:C.I2},{c:2,r:1,col:C.I3},{c:0,r:2,col:C.I1},{c:2,r:2,col:C.I2}];
+const STORE_CELL={c:1,r:3};
+const AMR_HOME={x:GX+GW+GG/2+55,y:GY+3*(GH+GG)+22};
+// CSV data flow animation
+const CSV_FROM={x:WMS_TERM.x+WMS_TERM.w/2,y:WMS_TERM.y+WMS_TERM.h/2};
+const CSV_TO={x:AZ.x+AZ.w/2,y:AZ.y+40};
+
+let wk={...WORKER_HOME},wkFrom={...WORKER_HOME},wkTo={...WORKER_HOME};
+let binPos={...BIN_HOME},binFrom={...BIN_HOME},binTo={...BIN_HOME};
+let amrPos={...AMR_HOME},amrFrom={...AMR_HOME},amrTo={...AMR_HOME};
+let binItems=[],binAtStation=false,binStored=false,scanFlash=0;
+let csvProgress=0,csvSent=false,asrsReceived=false;
+let phase=1,carrying=false,amrCarrying=false;
+let log=[],steps=[],stepIdx=0,t=0,animRunning=false,animId=null,lastTime=0,stepLabel='';
+// CSV animation particle
+let csvParticle={x:CSV_FROM.x,y:CSV_FROM.y,visible:false};
+let csvParticleT=0;
+
+function tileCenter(){return{x:TILE.x+TILE.w/2,y:TILE.y+TILE.h/2};}
+function cellCenter(c,r){return{x:GX+c*(GW+GG)+GW/2,y:GY+r*(GH+GG)+GH/2};}
+
+function buildSteps(){
+  const st=[];
+  // Phase 1: Upper WMS stowing on floor
+  st.push({type:'wk_move',to:{x:WMS_TERM.x+WMS_TERM.w/2,y:WMS_TERM.y+WMS_TERM.h+10},msg:'作業者 → 上位 WMS 端末へ'});
+  st.push({type:'wms_scan',msg:'上位 WMS ハンディで Bin・スロット選択'});
+  st.push({type:'item_to_bin',item:{col:C.I1,label:'商品 A'},msg:'上位 WMS で商品 A をスキャン → Bin へ格納'});
+  st.push({type:'item_to_bin',item:{col:C.I2,label:'商品 B'},msg:'上位 WMS で商品 B をスキャン → Bin へ格納'});
+  st.push({type:'item_to_bin',item:{col:C.I3,label:'商品 C'},msg:'上位 WMS で商品 C をスキャン → Bin へ格納'});
+  st.push({type:'csv_gen',msg:'積み付けデータ CSV を生成'});
+  st.push({type:'csv_send',msg:'CSV を ASRS API 経由で連携中...'});
+  st.push({type:'asrs_receive',msg:'ASRS が積み付けデータを受信 ✓'});
+  // Phase 2: Station
+  st.push({type:'phase2',msg:'Bin をステーションへ移動'});
+  st.push({type:'wk_carry',to:{x:TILE.x+TILE.w/2,y:TILE.y+TILE.h/2},msg:'作業者が Bin を搬送'});
+  st.push({type:'tile_scan',msg:'タイル・Bin バーコードスキャン'});
+  st.push({type:'station_ready',msg:'格納スタンバイ完了 ✓'});
+  // Phase 3: ASRS
+  st.push({type:'phase3',msg:'AMR が出動します'});
+  st.push({type:'amr_to_station',msg:'AMR → ステーションへ出動'});
+  st.push({type:'amr_pickup',msg:'AMR が Bin を取得'});
+  st.push({type:'amr_to_asrs',msg:'AMR が ASRS 内部へ Bin を格納'});
+  st.push({type:'bin_stored',msg:'Bin 格納完了 ✓'});
+  st.push({type:'wk_move',to:{...WORKER_HOME},msg:'作業者 ホームへ'});
+  st.push({type:'done',msg:'外部データ連携による在庫登録 完了'});
+  return st;
+}
+
+function prepStep(idx){
+  if(idx>=steps.length)return;
+  const s=steps[idx];
+  wkFrom={...wk};binFrom={...binPos};amrFrom={...amrPos};
+  if(s.type==='wk_move')wkTo={...s.to};
+  else if(s.type==='wk_carry')wkTo={...s.to};
+  else if(s.type==='amr_to_station')amrTo={...tileCenter()};
+  else if(s.type==='amr_to_asrs')amrTo={...cellCenter(STORE_CELL.c,STORE_CELL.r)};
+  else{wkTo={...wk};amrTo={...amrPos};}
+  if(s.type==='wk_carry')binTo={...s.to};else binTo={...binPos};
+  if(s.type==='csv_send'){csvParticle={x:CSV_FROM.x,y:CSV_FROM.y,visible:true};csvParticleT=0;}
+  stepLabel=s.msg||'';
+}
+function commitStep(s){
+  wk={...wkTo};binPos={...binTo};amrPos={...amrTo};
+  if(s.type==='wms_scan'){scanFlash=20;}
+  if(s.type==='item_to_bin'){binItems.push(s.item);addLog(`+ ${s.item.label} → Bin (上位 WMS)`);}
+  if(s.type==='csv_gen'){csvProgress=1;addLog('CSV 生成 ✓');}
+  if(s.type==='csv_send'){csvParticle.visible=true;}
+  if(s.type==='asrs_receive'){csvSent=true;asrsReceived=true;addLog('ASRS データ受信 ✓');}
+  if(s.type==='phase2'){phase=2;carrying=true;}
+  if(s.type==='wk_carry'){binAtStation=true;carrying=false;}
+  if(s.type==='tile_scan'){scanFlash=20;}
+  if(s.type==='phase3'){phase=3;}
+  if(s.type==='amr_pickup'){amrCarrying=true;binAtStation=false;}
+  if(s.type==='bin_stored'){binStored=true;amrCarrying=false;addLog('Bin ASRS 格納完了 ✓');}
+  if(s.type==='done'){addLog('③ 外部データ連携 完了');}
+  if(scanFlash>0)scanFlash--;
+}
+function addLog(m){log.unshift(m);if(log.length>8)log.pop();}
+
+function toggleAnim(){
+  if(stepIdx>=steps.length){resetAnim();return;}
+  animRunning=!animRunning;
+  document.getElementById('startBtn').textContent=animRunning?'⏸ Pause':'▶ Resume';
+  if(animRunning){lastTime=performance.now();loop(lastTime);}
+}
+function resetAnim(){
+  animRunning=false;if(animId)cancelAnimationFrame(animId);
+  document.getElementById('startBtn').textContent='▶ Start';
+  wk={...WORKER_HOME};wkFrom={...wk};wkTo={...wk};
+  binPos={...BIN_HOME};binFrom={...binPos};binTo={...binPos};
+  amrPos={...AMR_HOME};amrFrom={...amrPos};amrTo={...amrPos};
+  binItems=[];binAtStation=false;binStored=false;scanFlash=0;
+  csvProgress=0;csvSent=false;asrsReceived=false;
+  phase=1;carrying=false;amrCarrying=false;
+  csvParticle={x:CSV_FROM.x,y:CSV_FROM.y,visible:false};csvParticleT=0;
+  log=[];stepLabel='';steps=buildSteps();stepIdx=0;t=0;prepStep(0);draw();
+}
+function loop(ts){
+  if(!animRunning)return;
+  const spd=parseFloat(document.getElementById('speed').value);
+  const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+  const s=steps[stepIdx];
+  const instant=s&&['wms_scan','item_to_bin','csv_gen','asrs_receive','tile_scan','phase2','phase3','station_ready','amr_pickup','bin_stored','done'].includes(s.type);
+  t+=dt*spd*(instant?3:s&&s.type==='csv_send'?1.5:0.65);
+  if(scanFlash>0)scanFlash--;
+  // CSV particle animation
+  if(csvParticle.visible){
+    csvParticleT=Math.min(csvParticleT+dt*spd*0.8,1);
+    csvParticle.x=lerp(CSV_FROM.x,CSV_TO.x,ease(csvParticleT));
+    csvParticle.y=lerp(CSV_FROM.y,CSV_TO.y,ease(csvParticleT));
+  }
+  if(t>=1){commitStep(steps[stepIdx]);stepIdx++;t=0;
+    if(stepIdx>=steps.length){animRunning=false;document.getElementById('startBtn').textContent='完了';draw();return;}
+    prepStep(stepIdx);}
+  draw();animId=requestAnimationFrame(loop);
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function ease(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+function sf(sz,w='400'){ctx.font=`${w} ${sz}px 'Noto Sans JP','Open Sans',sans-serif`;}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=C.floorBg;ctx.fillRect(FZ.x,FZ.y,FZ.w,FZ.h);
+  ctx.fillStyle=C.stationBg;ctx.fillRect(SZ.x,SZ.y,SZ.w,SZ.h);
+  ctx.fillStyle=C.asrsBg;ctx.fillRect(AZ.x,AZ.y,AZ.w,AZ.h);
+  ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.strokeRect(FZ.x,FZ.y,FZ.w,FZ.h);ctx.strokeRect(SZ.x,SZ.y,SZ.w,SZ.h);ctx.strokeRect(AZ.x,AZ.y,AZ.w,AZ.h);
+  ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
+  sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('STOWING STATION',22,19);
+  ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('③ INVENTORY IMPORT',W-22,19);ctx.textAlign='left';
+  sf(8,'700');ctx.fillStyle=C.textLight;
+  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ STOW STATION',SZ.x+8,44);ctx.fillText('/ ASRS',AZ.x+8,44);
+
+  drawGoods();drawWMSTerminal();drawBin();drawCSVFlow();
+  drawTile();drawASRSGrid();drawWorker();drawAMR();
+  drawLogPanel();drawProgress();
+  ctx.fillStyle=C.black;ctx.fillRect(14,28,2,252);
+}
+
+function drawGoods(){
+  for(let i=2;i>=0;i--){
+    const bx=GOODS.x+i*4,by=GOODS.y+i*28;
+    ctx.fillStyle=C.goods+'cc';ctx.strokeStyle=C.goods;ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(bx,by,GOODS.w,GOODS.h/3.5);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=C.goods+'88';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(bx,by+GOODS.h/7);ctx.lineTo(bx+GOODS.w,by+GOODS.h/7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx+GOODS.w/2,by);ctx.lineTo(bx+GOODS.w/2,by+GOODS.h/3.5);ctx.stroke();
+  }
+  sf(8,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+10);ctx.textAlign='left';
+}
+
+function drawWMSTerminal(){
+  const active=phase===1;
+  // Terminal body
+  ctx.fillStyle=active?C.wms+'18':'#f0f0f0';
+  ctx.strokeStyle=active?C.wms:'#ccc';ctx.lineWidth=active?1.5:1;
+  ctx.beginPath();ctx.rect(WMS_TERM.x,WMS_TERM.y,WMS_TERM.w,WMS_TERM.h);ctx.fill();ctx.stroke();
+  // Screen
+  ctx.fillStyle=active?C.wms+'33':'#ddd';
+  ctx.beginPath();ctx.rect(WMS_TERM.x+6,WMS_TERM.y+6,WMS_TERM.w-12,WMS_TERM.h-22);ctx.fill();
+  if(csvProgress){
+    sf(7,'700');ctx.fillStyle=C.wms;ctx.textAlign='center';
+    ctx.fillText('CSV',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h/2);ctx.textAlign='left';
+  }
+  // Label
+  sf(8,'700');ctx.fillStyle=active?C.wms:C.textLight;ctx.textAlign='center';
+  ctx.fillText('上位 WMS',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+12);
+  ctx.fillText('端末',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+24);ctx.textAlign='left';
+  // Scan flash
+  if(scanFlash>0){
+    ctx.fillStyle=`rgba(58,90,138,${scanFlash/20*0.3})`;ctx.fillRect(WMS_TERM.x,WMS_TERM.y,WMS_TERM.w,WMS_TERM.h);
+    sf(8,'700');ctx.fillStyle=C.wms;ctx.textAlign='center';ctx.fillText('SCAN',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h/2+4);ctx.textAlign='left';
+  }
+}
+
+function drawCSVFlow(){
+  if(!csvProgress)return;
+  // Dashed arrow from WMS to ASRS
+  const dx=CSV_TO.x-CSV_FROM.x,dy=CSV_TO.y-CSV_FROM.y;
+  ctx.strokeStyle=csvSent?C.csv:'#aaa';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
+  ctx.beginPath();ctx.moveTo(CSV_FROM.x,CSV_FROM.y);ctx.lineTo(CSV_TO.x,CSV_TO.y);ctx.stroke();
+  ctx.setLineDash([]);
+  sf(8,'700');ctx.fillStyle=csvSent?C.csv:C.textLight;ctx.textAlign='center';
+  ctx.fillText('CSV / API',CSV_FROM.x+(CSV_TO.x-CSV_FROM.x)/2,CSV_FROM.y+(CSV_TO.y-CSV_FROM.y)/2-8);ctx.textAlign='left';
+  // ASRS received indicator
+  if(asrsReceived){
+    ctx.fillStyle=C.csv+'22';ctx.strokeStyle=C.csv;ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(AZ.x+8,AZ.y+8,100,22);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle=C.csv;ctx.fillText('データ受信 ✓',AZ.x+14,AZ.y+23);
+  }
+  // Moving CSV particle
+  if(csvParticle.visible&&!csvSent){
+    ctx.fillStyle=C.wms;ctx.strokeStyle=C.white;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(csvParticle.x,csvParticle.y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+    sf(7,'700');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('CSV',csvParticle.x,csvParticle.y+3);ctx.textAlign='left';
+  }
+}
+
+function drawBin(){
+  if(binStored&&!amrCarrying)return;
+  const et=ease(Math.min(t,1));
+  const bx=carrying||binAtStation?lerp(binFrom.x,binTo.x,et):binPos.x;
+  const by=carrying||binAtStation?lerp(binFrom.y,binTo.y,et):binPos.y;
+  const bw=BIN_HOME.w,bh=BIN_HOME.h;
+  const isEmpty=binItems.length===0;
+  ctx.fillStyle=isEmpty?C.emptyBin+'44':'#f0f8f0';
+  ctx.strokeStyle=isEmpty?C.emptyBin:'#4a7c59';ctx.lineWidth=isEmpty?1:1.5;
+  ctx.beginPath();ctx.rect(bx-bw/2,by-bh/2,bw,bh);ctx.fill();ctx.stroke();
+  sf(9,'700');ctx.fillStyle=isEmpty?C.textLight:'#4a7c59';ctx.textAlign='center';
+  ctx.fillText(isEmpty?'空 Bin':'SKU Bin',bx,by-bh/2+13);ctx.textAlign='left';
+  binItems.forEach((item,i)=>{
+    const slotX=bx-bw/2+6+(i%3)*(bw/3-2),slotY=by-bh/2+18;
+    ctx.fillStyle=item.col+'33';ctx.strokeStyle=item.col;ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(slotX,slotY,(bw/3-4),bh-24);ctx.fill();ctx.stroke();
+    sf(8,'500');ctx.fillStyle=item.col;ctx.textAlign='center';
+    ctx.fillText(item.label.replace('商品 ',''),slotX+(bw/3-4)/2,slotY+(bh-24)/2+4);ctx.textAlign='left';
+  });
+}
+
+function drawTile(){
+  const active=binAtStation||phase>=2;
+  ctx.fillStyle=active?'#e8f2e8':'#efefef';ctx.strokeStyle=active?'#4a7c59':'#ccc';ctx.lineWidth=active?1.5:1;
+  ctx.beginPath();ctx.rect(TILE.x,TILE.y,TILE.w,TILE.h);ctx.fill();ctx.stroke();
+  ctx.strokeStyle=active?'#4a7c5933':'#cccccc55';ctx.lineWidth=1;
+  for(let gx=TILE.x+14;gx<TILE.x+TILE.w;gx+=14){ctx.beginPath();ctx.moveTo(gx,TILE.y);ctx.lineTo(gx,TILE.y+TILE.h);ctx.stroke();}
+  for(let gy=TILE.y+14;gy<TILE.y+TILE.h;gy+=14){ctx.beginPath();ctx.moveTo(TILE.x,gy);ctx.lineTo(TILE.x+TILE.w,gy);ctx.stroke();}
+  sf(8,'700');ctx.fillStyle=active?'#4a7c59':C.textLight;ctx.textAlign='center';
+  ctx.fillText('Stow Tile',TILE.x+TILE.w/2,TILE.y+TILE.h+12);ctx.textAlign='left';
+}
+
+function drawASRSGrid(){
+  for(let r=0;r<4;r++){for(let c=0;c<3;c++){
+    const cx=GX+c*(GW+GG),cy=GY+r*(GH+GG);
+    const pre=PRE.find(p=>p.c===c&&p.r===r);
+    const isStore=STORE_CELL.c===c&&STORE_CELL.r===r;
+    if(pre){
+      ctx.fillStyle=pre.col+'22';ctx.strokeStyle=pre.col+'88';ctx.lineWidth=1;
+      ctx.beginPath();ctx.rect(cx,cy,GW,GH);ctx.fill();ctx.stroke();
+      ctx.fillStyle=pre.col;ctx.beginPath();ctx.rect(cx+4,cy+4,GW-8,GH-8);ctx.fill();
+      sf(7,'500');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('Bin',cx+GW/2,cy+GH/2+3);ctx.textAlign='left';
+    } else if(isStore&&binStored){
+      ctx.fillStyle='#4a7c5922';ctx.strokeStyle='#4a7c59';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.rect(cx,cy,GW,GH);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#4a7c59';ctx.beginPath();ctx.rect(cx+4,cy+4,GW-8,GH-8);ctx.fill();
+      sf(7,'700');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('NEW',cx+GW/2,cy+GH/2+3);ctx.textAlign='left';
+    } else {
+      ctx.fillStyle='#f0f0f8';ctx.strokeStyle=isStore?'#4a7c5966':'#ddd';ctx.lineWidth=isStore?1.5:1;ctx.setLineDash(isStore?[3,3]:[]);
+      ctx.beginPath();ctx.rect(cx,cy,GW,GH);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+    }
+  }}
+  sf(8,'700');ctx.fillStyle=C.textLight;ctx.textAlign='center';
+  ctx.fillText('ASRS Storage',GX+(3*GW+2*GG)/2,GY+4*(GH+GG)+14);ctx.textAlign='left';
+}
+
+function drawWorker(){
+  const et=ease(Math.min(t,1));
+  const wx=lerp(wkFrom.x,wkTo.x,et),wy=lerp(wkFrom.y,wkTo.y,et);
+  ctx.strokeStyle=C.worker+'22';ctx.lineWidth=1;ctx.setLineDash([3,5]);
+  ctx.beginPath();ctx.moveTo(wkFrom.x,wkFrom.y);ctx.lineTo(wx,wy);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=C.worker;ctx.strokeStyle=C.white;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(wx,wy,15,0,Math.PI*2);ctx.fill();ctx.stroke();
+  sf(13,'400');ctx.textAlign='center';ctx.fillStyle='#fff';ctx.fillText('人',wx,wy+5);ctx.textAlign='left';
+  sf(7,'500');ctx.fillStyle=C.textLight;ctx.textAlign='center';ctx.fillText('作業者',wx,wy+28);ctx.textAlign='left';
+}
+
+function drawAMR(){
+  if(phase<3)return;
+  const et=ease(Math.min(t,1));
+  const ax=lerp(amrFrom.x,amrTo.x,et),ay=lerp(amrFrom.y,amrTo.y,et);
+  ctx.strokeStyle=C.amr+'44';ctx.lineWidth=1.5;ctx.setLineDash([3,5]);
+  ctx.beginPath();ctx.moveTo(amrFrom.x,amrFrom.y);ctx.lineTo(ax,ay);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=C.amr;ctx.strokeStyle=C.white;ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(ax,ay,14,0,Math.PI*2);ctx.fill();ctx.stroke();
+  sf(9,'700');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('AMR',ax,ay+4);ctx.textAlign='left';
+}
+
+function drawLogPanel(){
+  const lx=30,ly=290,lw=284,lh=118;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(lx,ly,lw,lh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(lx,ly,2,lh);
+  sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ ACTION LOG',lx+10,ly+14);
+  log.slice(0,6).forEach((m,i)=>{
+    sf(10,i===0?'500':'300');ctx.fillStyle=i===0?C.text:C.textLight;ctx.fillText(m,lx+10,ly+28+i*15);
+  });
+}
+
+function drawProgress(){
+  const bx=324,by=290,bw=590,bh=118;
+  ctx.fillStyle=C.white;ctx.strokeStyle=C.border;ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.fill();ctx.stroke();
+  ctx.fillStyle=C.black;ctx.fillRect(bx,by,2,bh);
+  sf(8,'700');ctx.fillStyle=C.textLight;ctx.fillText('/ PROGRESS',bx+10,by+14);
+  const phases=[
+    {label:'1. WMS 積み付け',done:csvSent,col:C.I3},
+    {label:'2. CSV / API 連携',done:asrsReceived,col:C.wms},
+    {label:'3. ASRS 格納',done:binStored,col:C.I2},
+  ];
+  phases.forEach((p,i)=>{
+    const px=bx+10+i*(bw/3-4),py=by+26;
+    ctx.fillStyle=p.done?p.col+'22':'#f0f0f8';ctx.strokeStyle=p.done?p.col:'#ddd';ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(px,py,bw/3-14,64);ctx.fill();ctx.stroke();
+    sf(9,'700');ctx.fillStyle=p.done?p.col:C.textLight;ctx.textAlign='center';
+    ctx.fillText(p.label,px+(bw/3-14)/2,py+22);
+    sf(16,'700');ctx.fillStyle=p.done?p.col:'#ddd';ctx.fillText(p.done?'✓':'○',px+(bw/3-14)/2,py+50);ctx.textAlign='left';
+  });
+  sf(8,'300');ctx.fillStyle=C.textLight;ctx.fillText(`Bin 積み付け: ${binItems.length} / 3 アイテム`,bx+10,by+106);
+  const tot=steps.length,cur=Math.min(stepIdx+1,tot);
+  sf(9,'300');ctx.fillStyle=C.textLight;ctx.textAlign='right';ctx.fillText(`Step ${cur} / ${tot}`,W-14,H-10);ctx.textAlign='left';
+  if(stepLabel){sf(10,'300');ctx.fillStyle=C.textMid;ctx.textAlign='center';ctx.fillText(stepLabel,bx+bw/2+80,H-10);ctx.textAlign='left';}
+}
+resetAnim();
+</script>
+</body>
+</html>

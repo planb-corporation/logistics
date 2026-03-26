@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stowing Patterns — Rapyuta ASRS</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  background: #fff; color: #111;
+  font-family: 'Noto Sans JP','Open Sans',sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+header {
+  padding: 14px 60px; border-bottom: 1px solid #e0e0e0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-label { font-size: 10px; font-weight: 500; letter-spacing: 2.5px; color: #aaa; text-transform: uppercase; }
+.hero { padding: 28px 60px 22px; border-bottom: 1px solid #e0e0e0; }
+.eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: 3px; color: #aaa; text-transform: uppercase;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 10px;
+}
+.eyebrow::before { content: '/'; color: #ccc; }
+.hero h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.15; color: #111; margin-bottom: 4px; }
+.hero h1 span { font-weight: 300; }
+.hero-sub { font-size: 12px; font-weight: 300; color: #777; line-height: 1.7; margin-top: 8px; max-width: 560px; }
+.hero-note {
+  margin-top: 14px; display: inline-flex; align-items: center; gap: 12px;
+  background: #f5f5f5; border: 1px solid #e0e0e0; padding: 8px 16px;
+  font-size: 11px; font-weight: 300; color: #777;
+}
+.hero-note strong { color: #111; font-weight: 700; }
+.cards-wrap { padding: 24px 60px 20px; flex: 1; }
+.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.section-header .slash { font-size: 12px; color: #ccc; }
+.section-header .label-en { font-size: 10px; font-weight: 700; letter-spacing: 3px; color: #aaa; text-transform: uppercase; }
+.section-header .label-jp { font-size: 11px; font-weight: 300; color: #aaa; }
+.section-divider { flex: 1; height: 1px; background: #e8e8e8; }
+.cards {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: #e0e0e0; border: 1px solid #e0e0e0;
+}
+.card {
+  background: #fff; display: flex; flex-direction: column;
+  text-decoration: none; color: inherit; transition: background 0.2s;
+}
+.card:hover { background: #fafafa; }
+.card:hover .card-arrow { transform: translateX(5px); color: #111; }
+.card:hover .card-top { background: #111; }
+.card-top { height: 2px; background: #e0e0e0; transition: background 0.2s; }
+.card-body { padding: 18px 20px 14px; flex: 1; display: flex; flex-direction: column; }
+.card-num { font-size: 9px; font-weight: 700; letter-spacing: 3px; color: #bbb; text-transform: uppercase; margin-bottom: 8px; }
+.card-title { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 2px; letter-spacing: -0.3px; }
+.card-title-en { font-size: 10px; font-weight: 400; color: #888; margin-bottom: 4px; letter-spacing: 0.3px; }
+.card-title-jp { font-size: 10px; font-weight: 300; color: #aaa; margin-bottom: 12px; letter-spacing: 0.5px; }
+.card-desc { font-size: 11px; font-weight: 300; color: #666; line-height: 1.8; flex: 1; }
+.card-meta { margin-top: 14px; padding-top: 12px; border-top: 1px solid #ebebeb; display: flex; flex-direction: column; gap: 6px; }
+.meta-row { display: flex; justify-content: space-between; align-items: baseline; }
+.meta-key { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: #ccc; text-transform: uppercase; }
+.meta-val { font-size: 10px; font-weight: 500; color: #444; }
+.meta-val.em { color: #111; font-weight: 700; }
+.card-footer {
+  padding: 11px 20px; border-top: 1px solid #ebebeb; background: #fafafa;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-cta { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #aaa; text-transform: uppercase; }
+.card-arrow { color: #ccc; font-size: 16px; transition: transform 0.2s, color 0.2s; }
+footer { padding: 12px 60px; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+footer p { font-size: 10px; font-weight: 300; color: #ccc; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:13px;font-weight:700;letter-spacing:1px;color:#111;">Stowing Patterns</span>
+  <span class="header-label">For Review Only</span>
+</header>
+<section class="hero">
+  <div class="eyebrow">Rapyuta ASRS</div>
+  <h1>Stowing <span>Patterns</span></h1>
+  <p class="hero-sub">ASRSへの商品格納における4つの入庫方式のシミュレーションです。</p>
+  <div class="hero-note">
+    <strong>使い方</strong>
+    各カードをクリック → アニメーション画面で ▶ Start を押してください
+  </div>
+</section>
+<section class="cards-wrap">
+  <div class="section-header">
+    <span class="slash">/</span>
+    <span class="label-en">4 Patterns</span>
+    <span class="label-jp">4つの格納方式</span>
+    <div class="section-divider"></div>
+  </div>
+  <div class="cards">
+    <a class="card" href="stowing_01_berth_receiving.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 01</div>
+        <div class="card-title">Berth Receiving</div>
+        <div class="card-title-en">berth receiving</div>
+        <div class="card-title-jp">入荷検品</div>
+        <p class="card-desc">ASN（入荷予定）と商品を照合しながらBinに積み付け。管理者確定後にASRSへ格納。</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-key">ASN照合</span><span class="meta-val em">あり</span></div>
+          <div class="meta-row"><span class="meta-key">管理者承認</span><span class="meta-val em">あり</span></div>
+          <div class="meta-row"><span class="meta-key">作業場所</span><span class="meta-val">フロア</span></div>
+        </div>
+      </div>
+      <div class="card-footer"><span class="card-cta">アニメーションを見る</span><span class="card-arrow">→</span></div>
+    </a>
+    <a class="card" href="stowing_02_item_receive.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 02</div>
+        <div class="card-title">Item Receive</div>
+        <div class="card-title-en">item receive</div>
+        <div class="card-title-jp">在庫登録</div>
+        <p class="card-desc">ASN照合なしで商品をBinに積み付け。確定操作後に即座にASRSへ格納可能。</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-key">ASN照合</span><span class="meta-val">なし</span></div>
+          <div class="meta-row"><span class="meta-key">管理者承認</span><span class="meta-val">なし</span></div>
+          <div class="meta-row"><span class="meta-key">作業場所</span><span class="meta-val">フロア</span></div>
+        </div>
+      </div>
+      <div class="card-footer"><span class="card-cta">アニメーションを見る</span><span class="card-arrow">→</span></div>
+    </a>
+    <a class="card" href="stowing_03_inventory_import.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 03</div>
+        <div class="card-title">Inventory Import</div>
+        <div class="card-title-en">inventory import</div>
+        <div class="card-title-jp">外部データ連携による在庫登録</div>
+        <p class="card-desc">上位WMSで積み付けデータを作成しCSVでASRSに連携。Binをステーションに持ち込み格納。</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-key">ASN照合</span><span class="meta-val">上位WMS側</span></div>
+          <div class="meta-row"><span class="meta-key">データ連携</span><span class="meta-val em">CSV / API</span></div>
+          <div class="meta-row"><span class="meta-key">作業場所</span><span class="meta-val">フロア</span></div>
+        </div>
+      </div>
+      <div class="card-footer"><span class="card-cta">アニメーションを見る</span><span class="card-arrow">→</span></div>
+    </a>
+    <a class="card" href="stowing_04_item_stow.html" target="_blank">
+      <div class="card-top"></div>
+      <div class="card-body">
+        <div class="card-num">Pattern 04</div>
+        <div class="card-title">Item Stow</div>
+        <div class="card-title-en">item stow</div>
+        <div class="card-title-jp">ステーションでの商品格納</div>
+        <p class="card-desc">空BinをASRSから自動供給。ステーション上で商品を積み付けそのまま格納。床作業不要。</p>
+        <div class="card-meta">
+          <div class="meta-row"><span class="meta-key">Bin取り出し</span><span class="meta-val em">自動供給</span></div>
+          <div class="meta-row"><span class="meta-key">管理者承認</span><span class="meta-val">なし</span></div>
+          <div class="meta-row"><span class="meta-key">作業場所</span><span class="meta-val em">ステーション</span></div>
+        </div>
+      </div>
+      <div class="card-footer"><span class="card-cta">アニメーションを見る</span><span class="card-arrow">→</span></div>
+    </a>
+  </div>
+</section>
+<footer>
+  <p>Stowing Patterns — Rapyuta ASRS</p>
+  <p>For Review Only</p>
+</footer>
+</body>
+</html>
