@@ -77,7 +77,7 @@ const SZ={x:338,y:30,w:204,h:250};   // Station zone (same as patterns 01-03)
 const AZ={x:552,y:30,w:354,h:250};   // ASRS zone (same as patterns 01-03)
 
 // Goods on floor
-const GOODS={x:28,y:65,w:76,h:96};
+const GOODS={x:230,y:190,w:72,h:72}; // between dashed box and 空Bin要求✓ banner
 // Station tile — same position as 01-03
 const TILE={x:370,y:78,w:124,h:116};
 // Worker stays at station
@@ -119,7 +119,7 @@ function buildSteps(){
   st.push({type:'bin_delivered',msg:'空 Bin がステーションに到着'});
   // Phase 3: Stow items at station
   st.push({type:'phase3',msg:'ステーション上で商品を積み付け'});
-  st.push({type:'wk_move',to:{...GOODS},msg:'作業者 → 入荷商品を取りに行く'});
+  st.push({type:'wk_move',to:{x:GOODS.x+GOODS.w/2,y:GOODS.y+GOODS.h/2},msg:'作業者 → 入荷商品へ'});
   st.push({type:'wk_move',to:{...WORKER_STATION},msg:'ステーションに戻る'});
   st.push({type:'item_stow',item:{col:C.I1,label:'商品 A'},msg:'商品 A スキャン → Bin へ積み付け'});
   st.push({type:'item_stow',item:{col:C.I2,label:'商品 B'},msg:'商品 B スキャン → Bin へ積み付け'});
@@ -131,7 +131,6 @@ function buildSteps(){
   st.push({type:'amr_to_asrs',msg:'AMR → ASRS 内部へ Bin を格納'});
   st.push({type:'bin_stored',msg:'Bin 格納完了 ✓'});
   st.push({type:'wk_move',to:{...WORKER_HOME},msg:'作業者 ホームへ'});
-   st.push({type:'stow_result',msg:'Stow Result — 格納実績データ生成'});
  st.push({type:'done',msg:'Item Stow 完了'});
   return st;
 }
@@ -163,11 +162,11 @@ function commitStep(s){
   if(s.type==='bin_delivered'){binOnTile=true;amrCarrying=false;addLog('空 Bin ステーション到着');}
   if(s.type==='phase3'){phase=3;}
   if(s.type==='item_stow'){binItems.push(s.item);addLog(`+ ${s.item.label} → Bin 積み付け`);}
-  if(s.type==='stow_complete'){scanFlash=30;addLog('積み付け完了 ✓ 格納開始');}
+  if(s.type==='stow_complete'){scanFlash=30;htFlash=90;addLog('積み付け完了 ✓ 格納開始');}
   if(s.type==='phase4'){phase=4;amrReturning=true;}
-  if(s.type==='amr_pickup'){amrCarrying=true;binOnTile=false;}
-  if(s.type==='bin_stored'){binStored=true;amrCarrying=false;amrReturning=false;addLog('Bin ASRS 格納完了 ✓');}
-  if(s.type==='stow_result'){stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
+  if(s.type==='amr_pickup'){amrCarrying=true;binOnTile=false;htFlash=0;}
+  if(s.type==='bin_stored'){binStored=true;amrCarrying=false;amrReturning=false;stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
+
   if(s.type==='done'){addLog('④ Item Stow 完了');}
   animFrameCount++;if(htFlash>0&&animFrameCount%2===0)htFlash--;if(scanFlash>0)scanFlash--;
   if(stowResultAnim>0)stowResultAnim--;
@@ -195,7 +194,7 @@ function loop(ts){
   const spd=parseFloat(document.getElementById('speed').value);
   const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
   const s=steps[stepIdx];
-  const instant=s&&['ht_request','bin_delivered','item_stow','stow_complete','phase2','phase3','phase4','amr_pickup','bin_stored','stow_result','done'].includes(s.type);
+  const instant=s&&['ht_request','bin_delivered','item_stow','stow_complete','phase2','phase3','phase4','amr_pickup','bin_stored','done'].includes(s.type);
   t+=dt*spd*(instant?3:0.65);
   animFrameCount++;if(htFlash>0&&animFrameCount%2===0)htFlash--;if(scanFlash>0)scanFlash--;
   if(stowResultAnim>0)stowResultAnim--;
@@ -236,8 +235,8 @@ function draw(){
 
   drawTile(); // drawn first so animations appear on top
   drawGoods();
-  drawBin();
   drawASRSGrid();
+  drawBin();  // drawn after ASRS grid so AMR-carried Bin shows on top
   drawWorker();
   drawAMR();
   if(scanFlash>0)drawCompleteFlash();
@@ -247,13 +246,15 @@ function draw(){
 }
 
 function drawGoods(){
-  for(let i=1;i>=0;i--){
-    const bx=GOODS.x+i*3,by=GOODS.y+i*26;
-    ctx.fillStyle=C.goods+'aa';ctx.strokeStyle=C.goods+'88';ctx.lineWidth=1;
-    ctx.beginPath();ctx.rect(bx,by,GOODS.w,GOODS.h/3.5);ctx.fill();ctx.stroke();
-  }
+  // Single box only (bottom)
   sf(11,'700');ctx.fillStyle='#333';ctx.textAlign='center';
-  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+16);ctx.textAlign='left';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y-6);ctx.textAlign='left';
+  ctx.fillStyle=C.goods+'cc';ctx.strokeStyle=C.goods+'88';ctx.lineWidth=1;
+  ctx.beginPath();ctx.rect(GOODS.x,GOODS.y,GOODS.w,GOODS.h/3.5);ctx.fill();ctx.stroke();
+  // cross lines
+  ctx.strokeStyle=C.goods+'66';ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.moveTo(GOODS.x,GOODS.y+GOODS.h/7);ctx.lineTo(GOODS.x+GOODS.w,GOODS.y+GOODS.h/7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(GOODS.x+GOODS.w/2,GOODS.y);ctx.lineTo(GOODS.x+GOODS.w/2,GOODS.y+GOODS.h/3.5);ctx.stroke();
 }
 
 function drawTile(){
@@ -297,8 +298,8 @@ function drawBin(){
   }
   const bw=120,bh=80;
   const isEmpty=binItems.length===0;
-  ctx.fillStyle=isEmpty?C.emptyBin+'44':'#f0f8f0';
-  ctx.strokeStyle=isEmpty?C.emptyBin:'#4a7c59';ctx.lineWidth=isEmpty?1:1.5;
+  ctx.fillStyle=isEmpty?'#f0f0f0':'#f0f8f0'; // solid white-grey, not transparent
+  ctx.strokeStyle=isEmpty?'#aaaaaa':'#4a7c59';ctx.lineWidth=isEmpty?1.5:1.5;
   ctx.beginPath();ctx.rect(bx-bw/2,by-bh/2,bw,bh);ctx.fill();ctx.stroke();
   sf(9,'700');ctx.fillStyle=isEmpty?C.textLight:'#4a7c59';ctx.textAlign='center';
   ctx.fillText(isEmpty?'空 Bin':'SKU Bin',bx,by-bh/2+13);ctx.textAlign='left';
@@ -356,6 +357,13 @@ function drawWorker(){
   ctx.beginPath();ctx.arc(wx,wy,15,0,Math.PI*2);ctx.fill();ctx.stroke();
   sf(13,'400');ctx.textAlign='center';ctx.fillStyle='#fff';ctx.fillText('人',wx,wy+5);ctx.textAlign='left';
   sf(7,'500');ctx.fillStyle=C.textLight;ctx.textAlign='center';ctx.fillText('作業者',wx,wy+28);ctx.textAlign='left';
+  // HT✓ small popup near worker
+  if(htFlash>0){
+    ctx.fillStyle=`rgba(58,97,134,${Math.min(htFlash/120,1)*0.92})`;ctx.strokeStyle='#3a6186';ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(wx+12,wy-28,38,20);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle='#fff';ctx.textAlign='center';
+    ctx.fillText('HT ✓',wx+31,wy-15);ctx.textAlign='left';
+  }
   // HT flash — prominent banner
   if(htFlash>0){
     const alpha=Math.min(htFlash/30,1);

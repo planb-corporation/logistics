@@ -117,7 +117,6 @@ function buildSteps(){
   st.push({type:'amr_to_asrs',msg:'AMR が ASRS 内部へ Bin を格納'});
   st.push({type:'bin_stored',msg:'Bin 格納完了 ✓'});
   st.push({type:'wk_move',to:{...WORKER_HOME},msg:'作業者 ホームへ'});
-   st.push({type:'stow_result',msg:'Stow Result — 格納実績データ生成'});
  st.push({type:'done',msg:'在庫登録 完了'});
   return st;
 }
@@ -132,21 +131,23 @@ function prepStep(idx){
   else if(s.type==='amr_to_asrs')amrTo={...cellCenter(STORE_CELL.c,STORE_CELL.r)};
   else{wkTo={...wk};amrTo={...amrPos};}
   if(s.type==='wk_carry')binTo={...s.to};
+  else if(s.type==='amr_to_asrs'){binTo={...cellCenter(STORE_CELL.c,STORE_CELL.r)};}
   else binTo={...binPos};
   stepLabel=s.msg||'';
 }
 function commitStep(s){
   wk={...wkTo};binPos={...binTo};amrPos={...amrTo};
-  if(s.type==='bin_scan'){scanFlash=20;}
+  if(s.type==='bin_scan'){scanFlash=20;htFlash=90;}
   if(s.type==='item_to_bin'){binItems.push(s.item);addLog(`+ ${s.item.label} → Bin へ格納`);}
   if(s.type==='complete_op'){completeFl=30;addLog('「完了」押下 ✓');}
   if(s.type==='phase2'){phase=2;carrying=true;}
   if(s.type==='wk_carry'){binAtStation=true;carrying=false;}
-  if(s.type==='tile_scan'){scanFlash=20;}
+  if(s.type==='tile_scan'){scanFlash=20;htFlash=90;}
   if(s.type==='phase3'){phase=3;}
+  if(s.type==='amr_to_station'){htFlash=0;}
   if(s.type==='amr_pickup'){amrCarrying=true;binAtStation=false;}
-  if(s.type==='bin_stored'){binStored=true;amrCarrying=false;addLog('Bin ASRS 格納完了 ✓');}
-  if(s.type==='stow_result'){stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
+  if(s.type==='bin_stored'){binStored=true;amrCarrying=false;stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
+
   if(s.type==='done'){addLog('② 在庫登録 完了');}
   if(scanFlash>0)scanFlash--;if(completeFl>0)completeFl--;
 }
@@ -173,7 +174,7 @@ function loop(ts){
   const spd=parseFloat(document.getElementById('speed').value);
   const dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
   const s=steps[stepIdx];
-  const instant=s&&['bin_scan','item_to_bin','complete_op','tile_scan','phase2','phase3','station_ready','amr_pickup','bin_stored','stow_result','done'].includes(s.type);
+  const instant=s&&['bin_scan','item_to_bin','complete_op','tile_scan','phase2','phase3','station_ready','amr_pickup','bin_stored','done'].includes(s.type);
   t+=dt*spd*(instant?3:0.65);
   if(scanFlash>0)scanFlash--;if(completeFl>0)completeFl--;
   if(t>=1){commitStep(steps[stepIdx]);stepIdx++;t=0;
@@ -208,7 +209,7 @@ function draw(){
 
   drawTile(); // drawn first so animations appear on top
 
-  drawGoods();drawBin();drawASRSGrid();drawWorker();drawAMR();
+  drawGoods();drawASRSGrid();drawBin();drawWorker();drawAMR();
   if(completeFl>0)drawCompleteFlash();
   if(stowResult)drawStowResult();
   drawLogPanel();drawProgress();
@@ -231,8 +232,9 @@ function drawGoods(){
 function drawBin(){
   if(binStored&&!amrCarrying)return;
   const et=ease(Math.min(t,1));
-  const bx=carrying||binAtStation?lerp(binFrom.x,binTo.x,et):binPos.x;
-  const by=carrying||binAtStation?lerp(binFrom.y,binTo.y,et):binPos.y;
+  const binMoving=carrying||binAtStation||(amrCarrying&&steps[stepIdx]&&steps[stepIdx].type==='amr_to_asrs');
+  const bx=binMoving?lerp(binFrom.x,binTo.x,et):binPos.x;
+  const by=binMoving?lerp(binFrom.y,binTo.y,et):binPos.y;
   const bw=BIN_HOME.w,bh=BIN_HOME.h;
   const isEmpty=binItems.length===0;
   ctx.fillStyle=isEmpty?C.emptyBin+'44':'#f0f8f0';
@@ -309,6 +311,14 @@ function drawWorker(){
   ctx.beginPath();ctx.arc(wx,wy,15,0,Math.PI*2);ctx.fill();ctx.stroke();
   sf(13,'400');ctx.textAlign='center';ctx.fillStyle='#fff';ctx.fillText('人',wx,wy+5);ctx.textAlign='left';
   sf(7,'500');ctx.fillStyle=C.textLight;ctx.textAlign='center';ctx.fillText('作業者',wx,wy+28);ctx.textAlign='left';
+
+  // HT✓ popup near worker
+  if(htFlash>0){
+    ctx.fillStyle=`rgba(58,97,134,${Math.min(htFlash/30,1)*0.92})`;ctx.strokeStyle=C.worker;ctx.lineWidth=1;
+    ctx.beginPath();ctx.rect(wx+12,wy-28,38,20);ctx.fill();ctx.stroke();
+    sf(8,'700');ctx.fillStyle='#fff';ctx.textAlign='center';
+    ctx.fillText('HT ✓',wx+31,wy-15);ctx.textAlign='left';
+  }
 }
 
 function drawAMR(){
