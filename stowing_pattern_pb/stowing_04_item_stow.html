@@ -102,6 +102,7 @@ let binItems=[],binOnTile=false,binStored=false,binVisible=false,scanFlash=0,htF
 let phase=1; // 1=request, 2=delivery, 3=stow, 4=store
 let amrCarrying=false,amrReturning=false;
 let log=[],steps=[],stepIdx=0,t=0,animRunning=false,animId=null,lastTime=0,stepLabel='';
+let animFrameCount=0;
 let stowResult=false,stowResultAnim=0; // Stow Result event
 
 function tileCenter(){return{x:TILE.x+TILE.w/2,y:TILE.y+TILE.h/2};}
@@ -157,7 +158,7 @@ function commitStep(s){
   if(s.type!=='amr_to_tile'&&s.type!=='amr_to_asrs')binPos={...binPos}; // bin stays
   if(s.type==='amr_to_tile')binPos={...tileCenter()};
   if(s.type==='amr_to_asrs')binPos={...cellCenter(STORE_CELL.c,STORE_CELL.r)};
-  if(s.type==='ht_request'){htFlash=30;addLog('空 Bin 要求 → AMR 配車');}
+  if(s.type==='ht_request'){htFlash=120;addLog('空 Bin 要求 → AMR 配車');}
   if(s.type==='phase2'){phase=2;amrCarrying=true;binVisible=true;}
   if(s.type==='bin_delivered'){binOnTile=true;amrCarrying=false;addLog('空 Bin ステーション到着');}
   if(s.type==='phase3'){phase=3;}
@@ -168,7 +169,7 @@ function commitStep(s){
   if(s.type==='bin_stored'){binStored=true;amrCarrying=false;amrReturning=false;addLog('Bin ASRS 格納完了 ✓');}
   if(s.type==='stow_result'){stowResult=true;stowResultAnim=60;addLog('Stow Result 生成 ✓');}
   if(s.type==='done'){addLog('④ Item Stow 完了');}
-  if(htFlash>0)htFlash--;if(scanFlash>0)scanFlash--;
+  animFrameCount++;if(htFlash>0&&animFrameCount%2===0)htFlash--;if(scanFlash>0)scanFlash--;
   if(stowResultAnim>0)stowResultAnim--;
 }
 function addLog(m){log.unshift(m);if(log.length>8)log.pop();}
@@ -185,7 +186,7 @@ function resetAnim(){
   wk={...WORKER_HOME};wkFrom={...wk};wkTo={...wk};
   binPos={...BIN_IN_ASRS};binFrom={...binPos};binTo={...binPos};
   amrPos={...AMR_HOME};amrFrom={...amrPos};amrTo={...amrPos};
-  binItems=[];binOnTile=false;binStored=false;stowResult=false;stowResultAnim=0;binVisible=false;scanFlash=0;htFlash=0;
+  binItems=[];binOnTile=false;binStored=false;stowResult=false;stowResultAnim=0;binVisible=false;scanFlash=0;htFlash=0;animFrameCount=0;
   phase=1;amrCarrying=false;amrReturning=false;
   log=[];stepLabel='';steps=buildSteps();stepIdx=0;t=0;prepStep(0);draw();
 }
@@ -196,7 +197,7 @@ function loop(ts){
   const s=steps[stepIdx];
   const instant=s&&['ht_request','bin_delivered','item_stow','stow_complete','phase2','phase3','phase4','amr_pickup','bin_stored','stow_result','done'].includes(s.type);
   t+=dt*spd*(instant?3:0.65);
-  if(htFlash>0)htFlash--;if(scanFlash>0)scanFlash--;
+  animFrameCount++;if(htFlash>0&&animFrameCount%2===0)htFlash--;if(scanFlash>0)scanFlash--;
   if(stowResultAnim>0)stowResultAnim--;
   if(t>=1){commitStep(steps[stepIdx]);stepIdx++;t=0;
     if(stepIdx>=steps.length){animRunning=false;document.getElementById('startBtn').textContent='完了';draw();return;}
@@ -218,8 +219,8 @@ function draw(){
   ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
   sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('Inbound process　入荷工程',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('④ ITEM STOW',W-22,19);ctx.textAlign='left';
-  sf(8,'700');ctx.fillStyle=C.textLight;
-  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS（Stow Station + Storage）',SZ.x+8,44);
+  sf(11,'700');ctx.fillStyle='#333';
+  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS',SZ.x+8,44);
 
   // "フロア作業不要" — prominent banner
   ctx.fillStyle='#1a1a1a22';ctx.strokeStyle='#555';ctx.lineWidth=2;ctx.setLineDash([5,4]);
@@ -251,8 +252,8 @@ function drawGoods(){
     ctx.fillStyle=C.goods+'aa';ctx.strokeStyle=C.goods+'88';ctx.lineWidth=1;
     ctx.beginPath();ctx.rect(bx,by,GOODS.w,GOODS.h/3.5);ctx.fill();ctx.stroke();
   }
-  sf(7,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
-  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+6);ctx.textAlign='left';
+  sf(11,'700');ctx.fillStyle='#333';ctx.textAlign='center';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+16);ctx.textAlign='left';
 }
 
 function drawTile(){

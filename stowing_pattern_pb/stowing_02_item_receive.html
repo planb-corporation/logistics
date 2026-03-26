@@ -195,8 +195,8 @@ function draw(){
   ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
   sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('Inbound process　入荷工程',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('② ITEM RECEIVE',W-22,19);ctx.textAlign='left';
-  sf(8,'700');ctx.fillStyle=C.textLight;
-  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS（Stow Station + Storage）',SZ.x+8,44);
+  sf(11,'700');ctx.fillStyle='#333';
+  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS',SZ.x+8,44);
   // ASN連携なし — prominent red banner
   ctx.fillStyle='#e11a2722';ctx.strokeStyle='#e11a27';ctx.lineWidth=2.5;
   ctx.beginPath();ctx.rect(FZ.x+2,FZ.y+FZ.h-52,FZ.w-4,46);ctx.fill();ctx.stroke();
@@ -224,8 +224,8 @@ function drawGoods(){
     ctx.beginPath();ctx.moveTo(bx,by+GOODS.h/7);ctx.lineTo(bx+GOODS.w,by+GOODS.h/7);ctx.stroke();
     ctx.beginPath();ctx.moveTo(bx+GOODS.w/2,by);ctx.lineTo(bx+GOODS.w/2,by+GOODS.h/3.5);ctx.stroke();
   }
-  sf(8,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
-  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+10);ctx.textAlign='left';
+  sf(11,'700');ctx.fillStyle='#333';ctx.textAlign='center';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+16);ctx.textAlign='left';
 }
 
 function drawBin(){

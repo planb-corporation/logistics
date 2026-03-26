@@ -217,8 +217,8 @@ function draw(){
   ctx.fillStyle=C.black;ctx.fillRect(14,0,892,28);
   sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('Inbound process　入荷工程',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('③ INVENTORY IMPORT',W-22,19);ctx.textAlign='left';
-  sf(8,'700');ctx.fillStyle=C.textLight;
-  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS（Stow Station + Storage）',SZ.x+8,44);
+  sf(11,'700');ctx.fillStyle='#333';
+  ctx.fillText('/ FLOOR',22,44);ctx.fillText('/ ASRS',SZ.x+8,44);
 
   drawTile(); // drawn first so animations appear on top
 
@@ -237,8 +237,8 @@ function drawGoods(){
     ctx.beginPath();ctx.moveTo(bx,by+GOODS.h/7);ctx.lineTo(bx+GOODS.w,by+GOODS.h/7);ctx.stroke();
     ctx.beginPath();ctx.moveTo(bx+GOODS.w/2,by);ctx.lineTo(bx+GOODS.w/2,by+GOODS.h/3.5);ctx.stroke();
   }
-  sf(8,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
-  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+10);ctx.textAlign='left';
+  sf(11,'700');ctx.fillStyle='#333';ctx.textAlign='center';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+16);ctx.textAlign='left';
 }
 
 function drawWMSTerminal(){
@@ -255,9 +255,10 @@ function drawWMSTerminal(){
     ctx.fillText('CSV',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h/2);ctx.textAlign='left';
   }
   // Label
-  sf(8,'700');ctx.fillStyle=active?C.wms:C.textLight;ctx.textAlign='center';
-  ctx.fillText('上位 WMS',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+12);
-  ctx.fillText('端末',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+24);ctx.textAlign='left';
+  sf(11,'700');ctx.fillStyle=active?C.wms:'#333';ctx.textAlign='center';
+  ctx.fillText('上位 WMS',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+14);
+  ctx.fillText('端末',WMS_TERM.x+WMS_TERM.w/2,WMS_TERM.y+WMS_TERM.h+28);
+  ctx.textAlign='left';
   // Scan flash
   if(scanFlash>0){
     ctx.fillStyle=`rgba(58,90,138,${scanFlash/20*0.3})`;ctx.fillRect(WMS_TERM.x,WMS_TERM.y,WMS_TERM.w,WMS_TERM.h);

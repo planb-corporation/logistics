@@ -225,9 +225,9 @@ function draw(){
   sf(11,'700');ctx.fillStyle='#fff';ctx.fillText('Inbound process　入荷工程',22,19);
   ctx.fillStyle='#888';ctx.textAlign='right';ctx.fillText('① BERTH RECEIVING',W-22,19);ctx.textAlign='left';
   // Zone labels
-  sf(8,'700');ctx.fillStyle=C.textLight;
+  sf(11,'700');ctx.fillStyle='#333';
   ctx.fillText('/ FLOOR',22,44);
-  ctx.fillText('/ ASRS（Stow Station + Storage）',SZ.x+8,44);
+  ctx.fillText('/ ASRS',SZ.x+8,44);
 
   drawTile(); // drawn first so animations appear on top
 
@@ -255,8 +255,8 @@ function drawGoods(){
     ctx.beginPath();ctx.moveTo(bx,by+GOODS.h/7);ctx.lineTo(bx+GOODS.w,by+GOODS.h/7);ctx.stroke();
     ctx.beginPath();ctx.moveTo(bx+GOODS.w/2,by);ctx.lineTo(bx+GOODS.w/2,by+GOODS.h/3.5);ctx.stroke();
   }
-  sf(8,'300');ctx.fillStyle=C.textLight;ctx.textAlign='center';
-  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+10);
+  sf(11,'700');ctx.fillStyle='#333';ctx.textAlign='center';
+  ctx.fillText('入荷商品',GOODS.x+GOODS.w/2,GOODS.y+GOODS.h+16);
   ctx.textAlign='left';
 }
 
